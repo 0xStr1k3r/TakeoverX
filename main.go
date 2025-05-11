@@ -3,7 +3,7 @@ package main
 import (
 	_ "embed"
 
-	"takeoverx/cmd"
+	"github.com/0xStr1k3r/TakeoverX/cmd"
 )
 
 //go:embed fingerprints/services.json

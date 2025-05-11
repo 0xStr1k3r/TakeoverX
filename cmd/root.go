@@ -13,15 +13,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"takeoverx/internal/discovery"
-	"takeoverx/internal/dns"
-	"takeoverx/internal/httpclient"
-	"takeoverx/internal/loader"
-	"takeoverx/internal/matcher"
-	"takeoverx/internal/models"
-	"takeoverx/internal/reporter"
-	"takeoverx/internal/services"
-	"takeoverx/internal/validation"
+	"github.com/0xStr1k3r/TakeoverX/internal/discovery"
+	"github.com/0xStr1k3r/TakeoverX/internal/dns"
+	"github.com/0xStr1k3r/TakeoverX/internal/httpclient"
+	"github.com/0xStr1k3r/TakeoverX/internal/loader"
+	"github.com/0xStr1k3r/TakeoverX/internal/matcher"
+	"github.com/0xStr1k3r/TakeoverX/internal/models"
+	"github.com/0xStr1k3r/TakeoverX/internal/reporter"
+	"github.com/0xStr1k3r/TakeoverX/internal/services"
+	"github.com/0xStr1k3r/TakeoverX/internal/validation"
 )
 
 const version = "1.1.0"
@@ -44,7 +44,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "takeoverx",
+	Use:     "github.com/0xStr1k3r/TakeoverX",
 	Short:   "TakeoverX — High-performance subdomain takeover scanner",
 	Long:    banner(),
 	Version: version,

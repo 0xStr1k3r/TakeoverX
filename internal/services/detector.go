@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"takeoverx/internal/models"
+	"github.com/0xStr1k3r/TakeoverX/internal/models"
 )
 
 // Detect returns the first matching ServiceFingerprint by checking the

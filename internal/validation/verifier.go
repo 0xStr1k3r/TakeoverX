@@ -1,9 +1,9 @@
 package validation
 
 import (
-	"takeoverx/internal/httpclient"
-	"takeoverx/internal/matcher"
-	"takeoverx/internal/models"
+	"github.com/0xStr1k3r/TakeoverX/internal/httpclient"
+	"github.com/0xStr1k3r/TakeoverX/internal/matcher"
+	"github.com/0xStr1k3r/TakeoverX/internal/models"
 )
 
 const retryCount = 2

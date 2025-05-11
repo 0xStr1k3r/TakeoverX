@@ -1,4 +1,4 @@
-module takeoverx
+module github.com/0xStr1k3r/TakeoverX
 
 go 1.24.13
 

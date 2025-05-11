@@ -3,7 +3,7 @@ package matcher
 import (
 	"strings"
 
-	"takeoverx/internal/models"
+	"github.com/0xStr1k3r/TakeoverX/internal/models"
 )
 
 // Match checks whether an HTTP response body contains any of the service fingerprints.

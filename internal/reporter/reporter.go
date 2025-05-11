@@ -9,7 +9,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"takeoverx/internal/models"
+	"github.com/0xStr1k3r/TakeoverX/internal/models"
 )
 
 const htmlTemplate = `<!DOCTYPE html>
