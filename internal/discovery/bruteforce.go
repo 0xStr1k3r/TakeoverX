@@ -24,7 +24,10 @@ func Generate(domain, wordlist string) ([]string, error) {
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		word := strings.TrimSpace(sc.Text())
-		if word == "" || strings.HasPrefix(word, "#") {
+		if i := strings.IndexAny(word, "#;"); i >= 0 {
+			word = strings.TrimSpace(word[:i])
+		}
+		if word == "" {
 			continue
 		}
 		sub := strings.ToLower(word) + "." + domain

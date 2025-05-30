@@ -15,6 +15,13 @@ func LoadDomains(wordlist string, single string) ([]string, error) {
 
 	add := func(raw string) {
 		raw = strings.TrimSpace(raw)
+		// Wordlists are shared artefacts, so they carry comments and blanks.
+		if i := strings.IndexAny(raw, "#;"); i >= 0 {
+			raw = strings.TrimSpace(raw[:i])
+		}
+		if raw == "" {
+			return
+		}
 		raw = strings.ToLower(raw)
 		// Strip http/https prefix if present
 		raw = strings.TrimPrefix(raw, "https://")
