@@ -30,6 +30,11 @@ func LoadDomains(wordlist string, single string) ([]string, error) {
 		if raw == "" {
 			return
 		}
+		// A host:port entry is meaningless for DNS but survives into every
+		// lookup, so strip it rather than resolving "api.example.com:8443".
+		if _, port, err := net.SplitHostPort(raw); err == nil && port != "" {
+			raw = strings.TrimSuffix(raw, ":"+port)
+		}
 		if _, ok := seen[raw]; ok {
 			return
 		}
@@ -64,15 +69,10 @@ func filterValid(domains []string) []string {
 	var out []string
 	for _, d := range domains {
 		if strings.Contains(d, ".") {
-			// Quick sanity check – host part must be parseable
-			host, _, err := net.SplitHostPort(d)
-			if err != nil {
-				// no port – that's fine
-				host = d
+			if strings.HasSuffix(d, ".") || strings.HasPrefix(d, ".") {
+				continue
 			}
-			if host != "" {
-				out = append(out, d)
-			}
+			out = append(out, d)
 		}
 	}
 	return out
