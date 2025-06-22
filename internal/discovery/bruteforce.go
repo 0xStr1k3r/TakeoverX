@@ -38,5 +38,14 @@ func Generate(domain, wordlist string) ([]string, error) {
 		subs = append(subs, sub)
 	}
 
-	return subs, sc.Err()
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("reading %q: %w", wordlist, err)
+	}
+	// An empty result is almost always the wrong file, and reporting it as a
+	// successful scan of zero names hides the mistake entirely.
+	if len(subs) == 0 {
+		return nil, fmt.Errorf("wordlist %q contained no usable prefixes", wordlist)
+	}
+
+	return subs, nil
 }
