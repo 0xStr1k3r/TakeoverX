@@ -19,29 +19,39 @@ func Match(fp *models.ServiceFingerprint, body string) bool {
 	return false
 }
 
+// identifyingHeaders are the response headers that name the platform serving
+// the request. Matching anywhere else produces nonsense: a Cache-Control of
+// "cloudflare" is not evidence that Cloudflare serves the site.
+var identifyingHeaders = map[string]bool{
+	"server": true, "x-powered-by": true, "via": true, "x-served-by": true,
+	"x-amz-request-id": true, "x-amz-id-2": true, "x-amz-cf-id": true,
+	"x-github-request-id": true, "x-vercel-id": true, "x-nf-request-id": true,
+	"x-netlify-request-id": true, "x-shopify-stage": true,
+	"x-render-origin-server": true, "cf-ray": true, "fly-request-id": true,
+}
+
 // MatchHeaders checks response headers for service-specific signatures.
-// Headers are compared case-insensitively against the service name and any
-// explicit header_fingerprints patterns defined in the fingerprint entry.
+// Header names and values are both compared case-insensitively.
 func MatchHeaders(fp *models.ServiceFingerprint, headers map[string]string) bool {
+	if len(headers) == 0 {
+		return false
+	}
 	serviceNameLower := strings.ToLower(fp.Name)
 
-	probeHeaders := []string{"Server", "X-Powered-By", "Via", "X-Served-By", "X-Amz-Request-Id", "X-Github-Request-Id"}
-	for _, hk := range probeHeaders {
-		if val, ok := headers[hk]; ok {
-			if strings.Contains(strings.ToLower(val), serviceNameLower) {
-				return true
-			}
-		}
-	}
-
-	// Check explicit header fingerprint patterns from services.json
-	for _, pattern := range fp.HeaderFingerprints {
-		if pattern == "" {
+	for name, value := range headers {
+		if !identifyingHeaders[strings.ToLower(name)] {
 			continue
 		}
-		lp := strings.ToLower(pattern)
-		for _, v := range headers {
-			if strings.Contains(strings.ToLower(v), lp) {
+		lower := strings.ToLower(value)
+		if lower == "" {
+			continue
+		}
+		if strings.Contains(lower, serviceNameLower) {
+			return true
+		}
+		// Check explicit header fingerprint patterns from services.json
+		for _, pattern := range fp.HeaderFingerprints {
+			if pattern != "" && strings.Contains(lower, strings.ToLower(pattern)) {
 				return true
 			}
 		}
