@@ -21,7 +21,11 @@ func Detect(primary string, chain []string, fingerprints []models.ServiceFingerp
 		}
 	}
 
-	for i, fp := range fingerprints {
+	// The last hop is the service actually serving the name. An earlier hop can
+	// point anywhere, so attributing a chain to its first CNAME names the wrong
+	// provider often enough to matter.
+	for i := len(candidates) - 1; i >= 0; i-- {
+		fp := fingerprints[i]
 		for _, candidate := range candidates {
 			lower := strings.ToLower(candidate)
 			for _, pattern := range fp.CNAME {
@@ -29,7 +33,7 @@ func Detect(primary string, chain []string, fingerprints []models.ServiceFingerp
 					continue
 				}
 				if strings.Contains(lower, strings.ToLower(pattern)) {
-					return &fingerprints[i]
+					return &fp
 				}
 			}
 		}
