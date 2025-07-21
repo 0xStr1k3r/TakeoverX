@@ -342,23 +342,28 @@ func processDomain(domain string, fps []models.ServiceFingerprint) models.ScanRe
 }
 
 // printProgress writes live scan progress to stderr.
+//
+// The previous version printed a row per result and then redrew the counter
+// without clearing the line first, so the counter was appended to the previous
+// hostname and the display crawled sideways for the length of the scan.
 func printProgress(r models.ScanResult, done, total int) {
+	pct := done * 100 / total
 	switch r.Status {
 	case "VULNERABLE":
 		fmt.Fprintf(os.Stderr, "\r\033[K  \033[31m[VULN]\033[0m %-45s → %-22s (%s)\n",
 			r.Subdomain, r.Service, r.Reason)
+	case "UNKNOWN":
+		if flagVerbose {
+			fmt.Fprintf(os.Stderr, "\r\033[K  \033[33m[%s]\033[0m %-45s → %s\n",
+				r.Status, r.Subdomain, r.Service)
+		}
 	default:
 		if flagVerbose {
-			color := "\033[32m"
-			if r.Status == "UNKNOWN" {
-				color = "\033[33m"
-			}
-			fmt.Fprintf(os.Stderr, "\r\033[K  %s[%s]\033[0m %-45s → %s\n",
-				color, r.Status, r.Subdomain, r.Service)
+			fmt.Fprintf(os.Stderr, "\r\033[K  \033[32m[%s]\033[0m %-45s → %s\n",
+				r.Status, r.Subdomain, r.Service)
 		}
 	}
-	pct := done * 100 / total
-	fmt.Fprintf(os.Stderr, "\r  Progress: %d/%d (%d%%)", done, total, pct)
+	fmt.Fprintf(os.Stderr, "\r\033[K  Progress: %d/%d (%d%%)", done, total, pct)
 }
 
 func banner() string {
