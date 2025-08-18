@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -24,364 +24,498 @@ import (
 	"github.com/0xStr1k3r/TakeoverX/internal/validation"
 )
 
-const version = "1.1.0"
+// Version is overridable at build time with -ldflags "-X main.version=…".
+var version = "1.0.0"
 
 // FingerprintsData is injected from main.go via the embed directive.
 var FingerprintsData []byte
 
-var (
-	flagWordlist   string
-	flagDomain     string
-	flagBruteforce string
-	flagConcurrent int
-	flagOut        string
-	flagReport     string
-	flagSave       string
-	flagVerbose    bool
-	flagTimeout    int
-	flagRate       int
-	flagNoVerify   bool
-)
-
-var rootCmd = &cobra.Command{
-	Use:     "github.com/0xStr1k3r/TakeoverX",
-	Short:   "TakeoverX — High-performance subdomain takeover scanner",
-	Long:    banner(),
-	Version: version,
-	RunE:    run,
+type options struct {
+	wordlist     string
+	domain       string
+	bruteforce   string
+	passive      bool
+	stdin        bool
+	concurrent   int
+	out          string
+	report       string
+	save         string
+	verbose      bool
+	explain      bool
+	quiet        bool
+	timeout      int
+	rate         int
+	repeats      int
+	noVerify     bool
+	proxy        string
+	failOn       string
+	exitZero     bool
+	onlyFindings bool
+	maxNames     int
+	defaultWords bool
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+var opts options
+
+var rootCmd = &cobra.Command{
+	Use:   "takeoverx",
+	Short: "TakeoverX — subdomain takeover scanner",
+	Long: banner() + `
+Finds subdomains whose DNS still points at a cloud service that no longer
+claims them, which lets anyone else register the name and serve content
+under your domain.
+
+Only scan assets you have explicit written authorisation to test.`,
+	Version:       version,
+	SilenceUsage:  true, // usage is noise once RunE has started failing
+	SilenceErrors: true, // Execute prints errors once, with our own formatting
+	RunE:          run,
+	Args:          cobra.NoArgs,
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&flagWordlist, "wordlist", "w", "", "Wordlist of subdomains to scan (one per line)")
-	rootCmd.Flags().StringVarP(&flagDomain, "domain", "d", "", "Single domain/subdomain to scan, or base domain for bruteforce")
-	rootCmd.Flags().StringVarP(&flagBruteforce, "bruteforce", "b", "", "Bruteforce mode: path to prefix wordlist (requires -d)")
-	rootCmd.Flags().IntVarP(&flagConcurrent, "concurrent", "c", 50, "Number of concurrent workers")
-	rootCmd.Flags().StringVarP(&flagOut, "out", "o", "table", "Output format: json | table | csv")
-	rootCmd.Flags().StringVar(&flagReport, "report", "", "Save HTML report to file (e.g. --report report.html)")
-	rootCmd.Flags().StringVarP(&flagSave, "save", "s", "", "Save scan results as JSON to file (e.g. -s results.json)")
-	rootCmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including SAFE/UNKNOWN (default: VULNERABLE only)")
-	rootCmd.Flags().IntVarP(&flagTimeout, "timeout", "t", 12, "HTTP probe timeout in seconds")
-	rootCmd.Flags().IntVar(&flagRate, "rate", 0, "Max HTTP requests per second (0 = unlimited)")
-	rootCmd.Flags().BoolVar(&flagNoVerify, "no-verify", false, "Skip retry verification (faster but more false positives)")
+	// Pre-register "version" without a shorthand so cobra does not claim "-v",
+	// which conventionally means verbose. Registering it first also lets cobra
+	// keep its built-in --version behaviour.
+	rootCmd.Flags().Bool("version", false, "Print the version and exit")
+	rootCmd.SetVersionTemplate("takeoverx {{.Version}}\n")
+
+	f := rootCmd.Flags()
+	f.StringVarP(&opts.domain, "domain", "d", "", "Base domain or single subdomain to check")
+	f.StringVarP(&opts.wordlist, "wordlist", "w", "", "File of hostnames, one per line")
+	f.StringVarP(&opts.bruteforce, "bruteforce", "b", "", "Prefix wordlist for bruteforce mode (requires -d)")
+	f.BoolVar(&opts.passive, "passive", false, "Discover subdomains from certificate transparency logs")
+
+	f.IntVarP(&opts.concurrent, "concurrent", "c", 50, "Concurrent workers")
+	f.IntVar(&opts.timeout, "timeout", 12, "Per-request timeout in seconds")
+	f.IntVar(&opts.rate, "rate", 0, "Requests per second (0 = unlimited)")
+	f.IntVar(&opts.repeats, "repeats", 2, "Probes that must agree before a finding is confirmed")
+	f.StringVar(&opts.proxy, "proxy", "", "Outbound proxy, e.g. http://127.0.0.1:8080")
+
+	f.StringVarP(&opts.out, "out", "o", "table", "Output format: "+strings.Join(reporter.Formats(), " | "))
+	f.StringVar(&opts.save, "save", "", "Also write the report to this file")
+	f.StringVar(&opts.report, "report", "", "Write a standalone HTML report to this file")
+	f.BoolVar(&opts.quiet, "quiet", false, "Suppress progress output")
+	f.BoolVar(&opts.onlyFindings, "only-findings", false, "Drop non-findings from written reports")
+	f.BoolVar(&opts.noVerify, "no-verify", false, "Report DNS matches without probing (faster, noisier)")
+	f.BoolVar(&opts.exitZero, "exit-zero", false, "Always exit 0, even when findings exist")
+
+	f.BoolVarP(&opts.verbose, "verbose", "v", false, "Show every hostname, not just findings")
 }
 
-func run(_ *cobra.Command, _ []string) error {
-	printBanner()
-
-	if flagWordlist == "" && flagDomain == "" && flagBruteforce == "" {
-		return fmt.Errorf("provide -d <domain>, -w <wordlist>, or -d <domain> -b <wordlist>")
+// Execute runs the CLI and maps the run outcome onto a process exit code.
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s error: %v\n", color("✗"), err)
+		os.Exit(2)
 	}
+}
 
-	// Clamp concurrency
-	if flagConcurrent < 1 {
-		flagConcurrent = 1
+// warnf prints a non-fatal problem to stderr.
+func warnf(format string, a ...any) {
+	fmt.Fprintf(os.Stderr, "%s %s\n", color("!"), fmt.Sprintf(format, a...))
+}
+
+// infof prints progress to stderr, leaving stdout clean for the report.
+func infof(format string, a ...any) {
+	if opts.quiet {
+		return
 	}
-	if flagConcurrent > 2000 {
-		flagConcurrent = 2000
+	fmt.Fprintf(os.Stderr, "%s %s\n", color("*"), fmt.Sprintf(format, a...))
+}
+
+func color(sym string) string {
+	if os.Getenv("NO_COLOR") != "" || !isTTY() {
+		return sym
 	}
+	return sym
+}
 
-	// Apply HTTP settings
-	httpclient.SetTimeout(time.Duration(flagTimeout) * time.Second)
-	httpclient.SetRateLimit(flagRate)
-
-	// Load fingerprints
-	fps, err := services.LoadFingerprints(FingerprintsData)
+func isTTY() bool {
+	fi, err := os.Stderr.Stat()
 	if err != nil {
-		return fmt.Errorf("failed to load fingerprints: %w", err)
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+func run(cmd *cobra.Command, _ []string) error {
+	if err := validateFlags(); err != nil {
+		return err
 	}
 
-	// Build domain list
-	var domains []string
+	registry, err := services.Load(FingerprintsData)
+	if err != nil {
+		return fmt.Errorf("loading fingerprint database: %w", err)
+	}
+	validation.BindRegistry(registry.Detect, registry.DetectIP, matcher.Match, matcher.MatchHeaders)
 
-	switch {
-	case flagBruteforce != "":
-		if flagDomain == "" {
-			return fmt.Errorf("bruteforce mode (-b) requires a base domain (-d)")
-		}
-		domains, err = discovery.Generate(flagDomain, flagBruteforce)
-		if err != nil {
-			return fmt.Errorf("bruteforce: %w", err)
-		}
-		fmt.Fprintf(os.Stderr, "[*] Bruteforce mode: generated %d candidates for %s\n", len(domains), flagDomain)
-
-	default:
-		domains, err = loader.LoadDomains(flagWordlist, flagDomain)
-		if err != nil {
-			return fmt.Errorf("failed to load domains: %w", err)
-		}
+	started := time.Now()
+	targets, mode, notes, err := collectTargets()
+	if err != nil {
+		return err
 	}
 
-	if len(domains) == 0 {
-		return fmt.Errorf("no valid domains found")
+	infof("%d targets | %d workers | %ds timeout | %d providers | rate %s",
+		len(targets), opts.concurrent, opts.timeout, registry.Count(), rateLabel())
+
+	results, err := scan(targets)
+	if err != nil {
+		return err
 	}
 
-	rateStr := "unlimited"
-	if flagRate > 0 {
-		rateStr = fmt.Sprintf("%d/s", flagRate)
-	}
-	fmt.Fprintf(os.Stderr, "[*] Targets: %d | Concurrent: %d | Timeout: %ds | Rate: %s | Fingerprints: %d\n\n",
-		len(domains), flagConcurrent, flagTimeout, rateStr, len(fps))
+	report := reporter.Build(targetLabel(targets, mode), mode, results, started, time.Since(started))
+	report.Notes = append(report.Notes, notes...)
+	report.Services = registry.Count()
 
-	results := scan(domains, fps)
-
-	// By default output only VULNERABLE; use -v to see all results
-	output := make([]models.ScanResult, 0)
-	if flagVerbose {
-		output = results
-	} else {
-		for _, r := range results {
-			if r.Status == "VULNERABLE" {
-				output = append(output, r)
-			}
-		}
+	if err := emit(report); err != nil {
+		return err
 	}
 
-	// Print to stdout
-	switch strings.ToLower(flagOut) {
-	case "table":
-		reporter.PrintTable(output)
-	case "csv":
-		reporter.PrintCSV(output)
-	default:
-		reporter.PrintJSON(output)
-	}
+	return finish(report)
+}
 
-	// Save JSON to file if -s provided (always vulnerable-only)
-	if flagSave != "" {
-		vulnOnly := make([]models.ScanResult, 0)
-		for _, r := range results {
-			if r.Status == "VULNERABLE" {
-				vulnOnly = append(vulnOnly, r)
-			}
-		}
-		if err := reporter.SaveJSON(vulnOnly, flagSave); err != nil {
-			fmt.Fprintf(os.Stderr, "[!] Failed to save results: %v\n", err)
-		} else {
-			fmt.Fprintf(os.Stderr, "\n[+] Results saved → %s\n", flagSave)
-		}
+// validateFlags rejects impossible combinations before any network traffic,
+// which is far cheaper than failing halfway through a long scan.
+func validateFlags() error {
+	// Mode-specific requirements first, so the operator is told exactly which
+	// flag is missing rather than being told there is nothing to scan.
+	if opts.bruteforce != "" && opts.domain == "" {
+		return errors.New("-b needs a base domain: takeoverx -b prefixes.txt -d example.com")
 	}
-
-	// Optional HTML report
-	if flagReport != "" {
-		if err := reporter.WriteHTML(results, flagReport); err != nil {
-			fmt.Fprintf(os.Stderr, "[!] Failed to write report: %v\n", err)
-		} else {
-			fmt.Fprintf(os.Stderr, "\n[+] HTML report saved → %s\n", flagReport)
+	if opts.passive && opts.domain == "" {
+		return errors.New("--passive needs a base domain: takeoverx --passive -d example.com")
+	}
+	if opts.domain == "" && opts.wordlist == "" && !opts.stdin && !opts.passive {
+		return errors.New("nothing to scan: pass -d, -w, --passive, or pipe hostnames with --stdin")
+	}
+	if opts.concurrent < 1 {
+		return fmt.Errorf("-c must be at least 1, got %d", opts.concurrent)
+	}
+	if opts.timeout < 1 {
+		return fmt.Errorf("--timeout must be at least 1 second, got %d", opts.timeout)
+	}
+	if opts.repeats < 1 {
+		return fmt.Errorf("--repeats must be at least 1, got %d", opts.repeats)
+	}
+	format := strings.ToLower(opts.out)
+	if !containsString(reporter.Formats(), format) {
+		return fmt.Errorf("unknown -o format %q (want one of: %s)", opts.out, strings.Join(reporter.Formats(), ", "))
+	}
+	if opts.proxy != "" {
+		if _, err := parseProxyFlag(opts.proxy); err != nil {
+			return fmt.Errorf("--proxy: %w", err)
 		}
 	}
-
-	// Summary
-	var vulnCount int
-	for _, r := range results {
-		if r.Status == "VULNERABLE" {
-			vulnCount++
-		}
-	}
-	fmt.Fprintf(os.Stderr, "\n[*] Scan complete — %d/%d vulnerable\n", vulnCount, len(domains))
-
 	return nil
 }
 
-// scan orchestrates the full detection pipeline using a concurrent worker pool.
-func scan(domains []string, fps []models.ServiceFingerprint) []models.ScanResult {
-	total := len(domains)
-	jobs := make(chan string, total)
-	resultsCh := make(chan models.ScanResult, total)
+func rateLabel() string {
+	if opts.rate <= 0 {
+		return "unlimited"
+	}
+	return fmt.Sprintf("%d/s", opts.rate)
+}
 
+func containsString(list []string, want string) bool {
+	for _, v := range list {
+		if v == want {
+			return true
+		}
+	}
+	return false
+}
+
+func targetLabel(targets []string, mode string) string {
+	if opts.domain != "" {
+		return opts.domain
+	}
+	if mode != "" {
+		return fmt.Sprintf("%d hostnames", len(targets))
+	}
+	if len(targets) > 0 {
+		return targets[0]
+	}
+	return "(none)"
+}
+
+// collectTargets resolves every input source into one deduplicated list.
+func collectTargets() ([]string, string, []string, error) {
 	var (
-		wg      sync.WaitGroup
-		counter atomic.Int64
+		targets []string
+		notes   []string
+		modes   []string
 	)
 
-	// Graceful cancellation on SIGINT/SIGTERM
+	loadOpts := loader.Options{Base: opts.domain, AllowWildcardLines: true}
+	loaded, err := loader.Load(opts.domain, opts.wordlist, nil, loadOpts)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	targets = append(targets, loaded.Domains...)
+	modes = append(modes, "list")
+	if loaded.Duplicate > 0 {
+		notes = append(notes, fmt.Sprintf("%d duplicate input(s) collapsed", loaded.Duplicate))
+	}
+	if len(loaded.Rejected) > 0 {
+		notes = append(notes, fmt.Sprintf("%d input line(s) rejected as invalid hostnames", len(loaded.Rejected)))
+		for i, r := range loaded.Rejected {
+			if i >= 3 {
+				break
+			}
+			notes = append(notes, fmt.Sprintf("rejected %q: %s", r.Input, r.Reason))
+		}
+	}
+
+	if opts.passive {
+		src := &discovery.PassiveSource{
+			Client:   httpClientNoTimeout(),
+			MaxNames: opts.maxNames,
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		names, err := src.Discover(ctx, opts.domain)
+		cancel()
+		if err != nil {
+			// Passive discovery is an accelerator, not a prerequisite: the
+			// scan must still run on whatever the caller supplied.
+			warnf("passive discovery failed, continuing with explicit targets: %v", err)
+			notes = append(notes, "certificate transparency discovery failed")
+		} else {
+			targets = mergeUnique(targets, names)
+			modes = append(modes, "passive")
+			infof("certificate transparency returned %d additional hostnames", len(names))
+		}
+	}
+
+	if opts.bruteforce != "" {
+		gen, err := discovery.Generate(opts.domain, opts.bruteforce)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		targets = mergeUnique(targets, gen)
+		modes = append(modes, "bruteforce")
+		infof("bruteforce generated %d candidates", len(gen))
+	}
+
+	if len(targets) == 0 {
+		return nil, "", nil, errors.New("no hostnames left to scan after discovery")
+	}
+	return targets, strings.Join(modes, "+"), notes, nil
+}
+
+func mergeUnique(existing, extra []string) []string {
+	seen := make(map[string]struct{}, len(existing)+len(extra))
+	out := make([]string, 0, len(existing)+len(extra))
+	for _, v := range append(append([]string{}, existing...), extra...) {
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
+}
+
+// scan runs the verification pipeline across all targets with a bounded pool.
+func scan(targets []string) ([]models.ScanResult, error) {
+	client := httpclient.New(time.Duration(opts.timeout)*time.Second, opts.rate, opts.proxy)
+	defer client.CloseIdle()
+
+	cfg := validation.DefaultConfig()
+	cfg.Repeats = opts.repeats
+	cfg.SkipVerify = opts.noVerify
+
+	verifier := validation.New(client, cfg)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
 	go func() {
 		select {
 		case <-sigCh:
-			fmt.Fprintf(os.Stderr, "\n[!] Interrupted — stopping workers...\n")
+			warnf("interrupted — finishing in-flight checks and writing what we have")
 			cancel()
 		case <-ctx.Done():
 		}
-		signal.Stop(sigCh)
 	}()
 
-	// Spawn workers
-	for i := 0; i < flagConcurrent; i++ {
+	// A wildcard zone makes every hostname resolve, so each zone is probed once
+	// and the verdict reused for every host beneath it. The verifier owns the
+	// call so that --no-verify skips it entirely.
+	wildcards := newWildcardCache(dns.WildcardActive)
+	verifier.SetWildcardCheck(wildcards.isWildcard)
+	progress := newProgress(len(targets))
+
+	var (
+		mu      sync.Mutex
+		results = make([]models.ScanResult, 0, len(targets))
+		wg      sync.WaitGroup
+	)
+
+	sem := make(chan struct{}, opts.concurrent)
+	for _, host := range targets {
+		select {
+		case <-ctx.Done():
+			goto done
+		case sem <- struct{}{}:
+		}
+
 		wg.Add(1)
-		go func() {
+		go func(host string) {
 			defer wg.Done()
-			for domain := range jobs {
-				select {
-				case <-ctx.Done():
-					// Drain remaining jobs without processing them
-					for range jobs {
-					}
-					return
-				default:
-				}
-				r := processDomain(domain, fps)
-				resultsCh <- r
+			defer func() { <-sem }()
 
-				done := int(counter.Add(1))
-				printProgress(r, done, total)
-			}
-		}()
+			res := verifier.Verify(ctx, host, validation.DefaultWildcardBase(host))
+			appendLocked(&mu, &results, toScanResult(res))
+			progress.tick(res)
+		}(host)
 	}
 
-	// Feed jobs
-	for _, d := range domains {
-		jobs <- d
-	}
-	close(jobs)
+done:
+	wg.Wait()
+	dns.ResetCache()
 
-	go func() {
-		wg.Wait()
-		close(resultsCh)
-	}()
-
-	var results []models.ScanResult
-	for r := range resultsCh {
-		results = append(results, r)
-	}
-
-	fmt.Fprintln(os.Stderr) // newline after progress bar
-	return results
+	progress.finish()
+	return results, nil
 }
 
-// processDomain runs the full 5-step detection pipeline for a single domain.
-func processDomain(domain string, fps []models.ServiceFingerprint) models.ScanResult {
-	result := models.ScanResult{
-		Subdomain: domain,
-		Service:   "Unknown",
-		Status:    "UNKNOWN",
-	}
-
-	// Step 1 — DNS resolution with CNAME chain analysis
-	dnsResult := dns.Resolve(domain)
-	result.CNAME = dnsResult.CNAME
-	if len(dnsResult.CNAMEChain) > 1 {
-		result.CNAMEChain = strings.Join(dnsResult.CNAMEChain, " → ")
-	}
-
-	// Step 2 — Service detection (checks full CNAME chain + domain itself)
-	var matchedFP *models.ServiceFingerprint
-	matchedFP = services.Detect(dnsResult.CNAME, dnsResult.CNAMEChain, fps)
-	if matchedFP == nil {
-		matchedFP = services.Detect(domain, nil, fps)
-	}
-
-	// Step 3 — NXDOMAIN handling
-	if dnsResult.NXDomain {
-		if matchedFP != nil && matchedFP.NXDomain {
-			result.Service = matchedFP.Name
-			result.Status = "VULNERABLE"
-			result.Reason = "NXDOMAIN + CNAME matches " + matchedFP.Name
-			return result
-		}
-		result.Status = "UNKNOWN"
-		result.Reason = "NXDOMAIN — domain does not resolve"
-		return result
-	}
-
-	if matchedFP == nil {
-		result.Status = "SAFE"
-		result.Reason = "No matching cloud service CNAME"
-		return result
-	}
-
-	result.Service = matchedFP.Name
-
-	// Step 4 — HTTP probe
-	httpResult := httpclient.Probe(domain)
-	if httpResult.Error != nil && httpResult.StatusCode == 0 {
-		if dnsResult.IsDead && matchedFP.NXDomain {
-			result.Status = "VULNERABLE"
-			result.Reason = "CNAME target is dead (NXDOMAIN)"
-		} else {
-			result.Status = "UNKNOWN"
-			result.Reason = "HTTP probe failed: " + httpResult.Error.Error()
-		}
-		return result
-	}
-
-	// Step 5 — Fingerprint + header matching
-	bodyMatch := matcher.Match(matchedFP, httpResult.Body)
-	headerMatch := matcher.MatchHeaders(matchedFP, httpResult.Headers)
-
-	if bodyMatch || headerMatch {
-		matchKind := "body"
-		if headerMatch && !bodyMatch {
-			matchKind = "header"
-		}
-
-		// Validation layer: retry to eliminate false positives
-		if !flagNoVerify && !validation.Verify(domain, matchedFP) {
-			result.Status = "SAFE"
-			result.Reason = fmt.Sprintf("HTTP %d — fingerprint matched once but failed retry verification", httpResult.StatusCode)
-			return result
-		}
-
-		result.Status = "VULNERABLE"
-		result.Reason = fmt.Sprintf("Fingerprint matched (%s)", matchKind)
-		return result
-	}
-
-	result.Status = "SAFE"
-	result.Reason = fmt.Sprintf("HTTP %d — fingerprint not matched", httpResult.StatusCode)
-	return result
+// appendLocked keeps result collection race-free without serialising the
+// verification work itself.
+func appendLocked(mu *sync.Mutex, dst *[]models.ScanResult, v models.ScanResult) {
+	mu.Lock()
+	*dst = append(*dst, v)
+	mu.Unlock()
 }
 
-// printProgress writes live scan progress to stderr.
-//
-// The previous version printed a row per result and then redrew the counter
-// without clearing the line first, so the counter was appended to the previous
-// hostname and the display crawled sideways for the length of the scan.
-func printProgress(r models.ScanResult, done, total int) {
-	pct := done * 100 / total
-	switch r.Status {
-	case "VULNERABLE":
-		fmt.Fprintf(os.Stderr, "\r\033[K  \033[31m[VULN]\033[0m %-45s → %-22s (%s)\n",
-			r.Subdomain, r.Service, r.Reason)
-	case "UNKNOWN":
-		if flagVerbose {
-			fmt.Fprintf(os.Stderr, "\r\033[K  \033[33m[%s]\033[0m %-45s → %s\n",
-				r.Status, r.Subdomain, r.Service)
+func toScanResult(v validation.Result) models.ScanResult {
+	out := models.ScanResult{
+		Subdomain:   v.Subdomain,
+		Status:      string(v.Status),
+		Confidence:  string(v.Confidence),
+		Reason:      v.Reason,
+		Remediation: v.Remediation,
+		DocsURL:     v.DocsURL,
+		Severity:    v.Severity,
+		MatchedBy:   v.MatchedBy,
+		Duration:    v.Duration.Seconds() * 1000,
+	}
+	if v.Service != nil {
+		out.Service = v.Service.Name
+		// Verification normally propagates the provider's impact rating, but a
+		// registry entry is the authoritative source when it did not.
+		if out.Severity == "" {
+			out.Severity = v.Service.Severity
 		}
+	}
+	out.Steps = v.Steps.Passed()
+	if d := dnsResultFor(v); d != nil {
+		out.RecordType = string(d.RecordType)
+		out.CNAME = d.CNAME
+		out.CNAMEChain = strings.Join(d.CNAMEChain, " -> ")
+		out.IPs = d.IPs
+	}
+	return out
+}
+
+// dnsResultFor re-reads the cached DNS answer for reporting. Verification
+// already resolved it, so this costs no extra queries.
+func dnsResultFor(v validation.Result) *models.DNSResult {
+	d := dns.Resolve(v.Subdomain)
+	if d == nil || d.RecordType == models.RecordNone {
+		return nil
+	}
+	return d
+}
+
+// emit writes the report in the requested formats.
+func emit(r *reporter.Report) error {
+	format := strings.ToLower(opts.out)
+
+	// -v controls what reaches the terminal. --only-findings controls what
+	// reaches a file, so a report handed to someone else never ships the noise
+	// the operator was filtering out for themselves.
+	stdoutView := r
+	if !opts.verbose {
+		stdoutView = reporter.FindingsOnly(r)
+	}
+	fileView := r
+	if opts.onlyFindings {
+		fileView = reporter.FindingsOnly(r)
+	}
+
+	switch format {
+	case reporter.FormatHTML:
+		// HTML is a document: it only makes sense on a file.
+		path := defaultReportPath(opts.report, "report.html")
+		if err := reporter.SaveFile(fileView, format, path); err != nil {
+			return err
+		}
+		infof("HTML report written to %s", path)
 	default:
-		if flagVerbose {
-			fmt.Fprintf(os.Stderr, "\r\033[K  \033[32m[%s]\033[0m %-45s → %s\n",
-				r.Status, r.Subdomain, r.Service)
+		if err := reporter.Write(os.Stdout, stdoutView, format); err != nil {
+			return err
 		}
 	}
-	fmt.Fprintf(os.Stderr, "\r\033[K  Progress: %d/%d (%d%%)", done, total, pct)
+
+	if opts.save != "" {
+		saveFormat := format
+		if format == reporter.FormatHTML {
+			saveFormat = reporter.FormatJSON
+		}
+		if err := reporter.SaveFile(fileView, saveFormat, opts.save); err != nil {
+			return fmt.Errorf("writing %q: %w", opts.save, err)
+		}
+		infof("report saved to %s", opts.save)
+	}
+	if opts.report != "" && format != reporter.FormatHTML {
+		if err := reporter.SaveFile(fileView, reporter.FormatHTML, opts.report); err != nil {
+			return fmt.Errorf("writing %q: %w", opts.report, err)
+		}
+		infof("HTML report written to %s", opts.report)
+	}
+
+	return nil
+}
+
+func defaultReportPath(flagValue, fallback string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+	return fallback
+}
+
+// finish prints the outcome.
+func finish(r *reporter.Report) error {
+	warnf("%d of %d checked names carry takeover risk", r.Summary.Vulnerable, r.Summary.Total)
+	return nil
+}
+
+func confidenceAtLeast(got, threshold string) bool {
+	rank := map[string]int{"high": 0, "medium": 1, "low": 2}
+	g, ok := rank[strings.ToLower(got)]
+	if !ok {
+		g = 2
+	}
+	t, ok := rank[threshold]
+	if !ok {
+		t = 1
+	}
+	return g <= t
 }
 
 func banner() string {
 	return `
-  ████████╗ █████╗ ██╗  ██╗███████╗ ██████╗ ██╗   ██╗███████╗██████╗ ██╗  ██╗
-  ╚══██╔══╝██╔══██╗██║ ██╔╝██╔════╝██╔═══██╗██║   ██║██╔════╝██╔══██╗╚██╗██╔╝
-     ██║   ███████║█████╔╝ █████╗  ██║   ██║██║   ██║█████╗  ██████╔╝ ╚███╔╝
-     ██║   ██╔══██║██╔═██╗ ██╔══╝  ██║   ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗ ██╔██╗
-     ██║   ██║  ██║██║  ██╗███████╗╚██████╔╝ ╚████╔╝ ███████╗██║  ██║██╔╝ ██╗
+  ████████╗ █████╗ ██╗  ██╗██╗   ██╗ ██████╗ ██╗   ██╗██████╗ ██╗  ██╗
+  ╚══██╔══╝██╔══██╗██║ ██╔╝██║   ██║██╔════╝ ██║   ██║██╔════╝ ██║  ██║
+     ██║   ███████║█████╔╝ ██║   ██║██║  ███╗██║   ██║█████╗  ██████╔╝
+     ██║   ██╔══██║██╔═██╗ ██║   ██║██║   ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
+     ██║   ██║  ██║██║  ██╗███████║╚██████╔╝ ╚████╔╝ ███████╗██║  ██║██╔╝ ██╗
      ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
-
-  Subdomain Takeover Scanner  |  51 cloud providers  |  Bug Bounty Ready
-  Version: v` + version + `
 `
 }
-
-func printBanner() {
-	fmt.Fprintln(os.Stderr, banner())
-}
-
-

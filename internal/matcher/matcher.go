@@ -6,56 +6,71 @@ import (
 	"github.com/0xStr1k3r/TakeoverX/internal/models"
 )
 
-// Match checks whether an HTTP response body contains any of the service fingerprints.
-func Match(fp *models.ServiceFingerprint, body string) bool {
-	for _, fingerprint := range fp.Fingerprints {
-		if fingerprint == "" {
+// Evidence records exactly what matched, so a finding can explain itself and
+// two providers can be told apart when several could plausibly match.
+type Evidence struct {
+	Kind  string `json:"kind"` // "body" | "header" | "cname" | "ip" | "dead"
+	Value string `json:"value,omitempty"`
+}
+
+// Match reports whether a response body contains any provider fingerprint.
+// Empty patterns are skipped: a provider with a blank entry must never match
+// everything.
+func Match(fp *models.ServiceFingerprint, body string) (bool, string) {
+	if body == "" {
+		return false, ""
+	}
+	for _, f := range fp.Fingerprints {
+		if f == "" {
 			continue
 		}
-		if strings.Contains(body, fingerprint) {
-			return true
+		if strings.Contains(body, f) {
+			return true, f
 		}
 	}
-	return false
+	return false, ""
 }
 
-// identifyingHeaders are the response headers that name the platform serving
-// the request. Matching anywhere else produces nonsense: a Cache-Control of
-// "cloudflare" is not evidence that Cloudflare serves the site.
-var identifyingHeaders = map[string]bool{
-	"server": true, "x-powered-by": true, "via": true, "x-served-by": true,
-	"x-amz-request-id": true, "x-amz-id-2": true, "x-amz-cf-id": true,
-	"x-github-request-id": true, "x-vercel-id": true, "x-nf-request-id": true,
-	"x-netlify-request-id": true, "x-shopify-stage": true,
-	"x-render-origin-server": true, "cf-ray": true, "fly-request-id": true,
-}
-
-// MatchHeaders checks response headers for service-specific signatures.
-// Header names and values are both compared case-insensitively.
-func MatchHeaders(fp *models.ServiceFingerprint, headers map[string]string) bool {
+// MatchHeaders reports whether response headers carry a provider signature.
+// Header names are compared case-insensitively (canonicalised), and so are the
+// values, so "Server: amazons3" still matches a lower-case pattern.
+func MatchHeaders(fp *models.ServiceFingerprint, headers map[string]string) (bool, string) {
 	if len(headers) == 0 {
-		return false
+		return false, ""
 	}
-	serviceNameLower := strings.ToLower(fp.Name)
 
-	for name, value := range headers {
-		if !identifyingHeaders[strings.ToLower(name)] {
+	// Providers routinely advertise themselves in these headers.
+	for name := range headers {
+		lowerName := strings.ToLower(name)
+		if !isIdentifyingHeader(lowerName) {
 			continue
 		}
-		lower := strings.ToLower(value)
-		if lower == "" {
+		value := strings.ToLower(headers[name])
+		if value == "" {
 			continue
 		}
-		if strings.Contains(lower, serviceNameLower) {
-			return true
-		}
-		// Check explicit header fingerprint patterns from services.json
-		for _, pattern := range fp.HeaderFingerprints {
-			if pattern != "" && strings.Contains(lower, strings.ToLower(pattern)) {
-				return true
+		for _, want := range fp.HeaderFingerprints {
+			if want != "" && strings.Contains(value, strings.ToLower(want)) {
+				return true, headers[name]
 			}
 		}
+		if strings.Contains(value, strings.ToLower(fp.Name)) {
+			return true, headers[name]
+		}
+	}
+	return false, ""
+}
+
+// isIdentifyingHeader limits header matching to headers that actually identify
+// the serving platform. Matching the service name against, say, Content-Type or
+// Cache-Control produces nonsense matches.
+func isIdentifyingHeader(lower string) bool {
+	switch lower {
+	case "server", "x-powered-by", "via", "x-served-by", "x-amz-request-id",
+		"x-amz-id-2", "x-amz-cf-id", "x-github-request-id", "x-vercel-id",
+		"x-nf-request-id", "x-netlify-request-id", "x-shopify-stage",
+		"x-render-origin-server", "cf-ray", "fly-request-id":
+		return true
 	}
 	return false
 }
-

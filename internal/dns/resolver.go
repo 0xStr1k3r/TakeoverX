@@ -2,6 +2,8 @@ package dns
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -10,99 +12,197 @@ import (
 	"github.com/0xStr1k3r/TakeoverX/internal/models"
 )
 
-const maxChainDepth = 10
+const (
+	maxChainDepth = 12
+	lookupTimeout = 5 * time.Second
+	resolveBudget = 10 * time.Second
+)
+
+var resolver Resolver = net.DefaultResolver
+
+type cacheEntry struct {
+	result *models.DNSResult
+	at     time.Time
+}
 
 var (
-	resolver = net.DefaultResolver
-
-	cache   = make(map[string]*models.DNSResult)
+	cache   = make(map[string]cacheEntry)
 	cacheMu sync.RWMutex
 )
 
-// Resolve performs a full CNAME chain lookup for the given subdomain.
-// Results are cached to avoid redundant lookups.
+// Resolver is the subset of net.Resolver used here — tests substitute fakes.
+type Resolver interface {
+	LookupCNAME(ctx context.Context, host string) (string, error)
+	LookupHost(ctx context.Context, host string) ([]string, error)
+}
+
+// SetResolver swaps the DNS backend (used by tests).
+func SetResolver(r Resolver) {
+	if r != nil {
+		resolver = r
+	}
+}
+
+// Resolve collects every DNS fact we need about a subdomain: which record
+// type points it somewhere, the full CNAME chain, addresses, and whether the
+// chain terminates in a dead (NXDOMAIN) target.
 func Resolve(domain string) *models.DNSResult {
+	domain = models.NormalizeDomain(domain)
+	domain = strings.TrimSuffix(domain, ".")
+
 	cacheMu.RLock()
-	if cached, ok := cache[domain]; ok {
+	if e, ok := cache[domain]; ok {
 		cacheMu.RUnlock()
-		return cached
+		return e.result
 	}
 	cacheMu.RUnlock()
 
-	result := &models.DNSResult{Subdomain: domain}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), resolveBudget)
 	defer cancel()
 
-	chain, nxdomain := resolveCNAMEChain(ctx, domain)
-	result.NXDomain = nxdomain
-	result.CNAMEChain = chain
+	res := &models.DNSResult{Subdomain: domain}
 
-	if len(chain) > 0 {
-		result.CNAME = chain[0]
-		// Check if the final hop in the chain is dead (NXDOMAIN)
-		last := chain[len(chain)-1]
-		addrs, aErr := resolver.LookupHost(ctx, last)
-		if aErr != nil || len(addrs) == 0 {
-			result.IsDead = true
+	// resolveChain returns the addresses it already looked up, so the common
+	// case costs one query per name rather than three.
+	res.RecordType, res.CNAMEChain, res.IPs = resolveChain(ctx, domain)
+	res.NXDomain = res.RecordType == models.RecordNone && len(res.IPs) == 0
+
+	if len(res.CNAMEChain) > 0 {
+		res.CNAME = res.CNAMEChain[0]
+
+		// Dead target: the CNAME chain resolves but the final hop has no
+		// address. This is the evidence for providers whose takeover manifests
+		// as a vanished resource.
+		last := res.CNAMEChain[len(res.CNAMEChain)-1]
+		lctx, lcancel := context.WithTimeout(ctx, lookupTimeout)
+		addrs, err := resolver.LookupHost(lctx, last)
+		lcancel()
+		if err != nil || len(addrs) == 0 {
+			res.IsDead = true
 		}
 	}
 
-	storeCache(domain, result)
-	return result
+	storeCache(domain, res)
+	return res
 }
 
-// resolveCNAMEChain follows the CNAME chain starting from domain.
-// Returns all CNAME targets found (excluding the original domain) and
-// whether a NXDOMAIN was encountered during lookup.
-func resolveCNAMEChain(ctx context.Context, domain string) (chain []string, nxdomain bool) {
-	current := domain
-	for depth := 0; depth < maxChainDepth; depth++ {
-		hopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		cname, err := resolver.LookupCNAME(hopCtx, current)
-		cancel()
+// resolveChain returns the record type, the CNAME chain, and any addresses
+// already resolved for the queried name (avoiding a duplicate A lookup).
+func resolveChain(ctx context.Context, domain string) (models.RecordType, []string, []string) {
+	addrs, hostErr := resolver.LookupHost(ctx, domain)
+	addrs = dedupe(addrs)
 
-		if err != nil {
-			errStr := err.Error()
-			if isNXDomain(errStr) {
-				nxdomain = true
-			}
-			break
-		}
+	// A bruteforce run is dominated by names that do not exist. NXDOMAIN from
+	// the address query settles it: the name is absent from the zone, so the
+	// CNAME query can only fail as well. Skipping it halves the queries for
+	// every miss, which is the overwhelming majority of a generated list.
+	if isNotFound(hostErr) && len(addrs) == 0 {
+		return models.RecordNone, nil, nil
+	}
 
-		// Strip trailing dot; LookupCNAME always appends one.
+	cctx, cancel := context.WithTimeout(ctx, lookupTimeout)
+	cname, err := resolver.LookupCNAME(cctx, domain)
+	cancel()
+	normal := strings.TrimSuffix(domain, ".")
+
+	if err == nil {
 		cname = strings.TrimSuffix(cname, ".")
-		normalCurrent := strings.TrimSuffix(current, ".")
-
-		if cname == normalCurrent {
-			// No more CNAME hops — this is a terminal A/AAAA record.
-			break
+		if cname != "" && cname != normal {
+			chain := []string{cname}
+			current := cname
+			for i := 0; i < maxChainDepth; i++ {
+				hctx, hcancel := context.WithTimeout(ctx, lookupTimeout)
+				next, nerr := resolver.LookupCNAME(hctx, current)
+				hcancel()
+				if nerr != nil {
+					break
+				}
+				next = strings.TrimSuffix(next, ".")
+				if next == "" || next == current {
+					break
+				}
+				chain = append(chain, next)
+				current = next
+			}
+			return models.RecordCNAME, chain, addrs
 		}
-
-		chain = append(chain, cname)
-		current = cname
 	}
-	return
+
+	if len(addrs) > 0 {
+		for _, a := range addrs {
+			if strings.Contains(a, ":") {
+				return models.RecordAAAA, nil, addrs
+			}
+		}
+		return models.RecordA, nil, addrs
+	}
+	return models.RecordNone, nil, nil
 }
 
-// Exists performs a quick A-record check to determine if a subdomain resolves.
-// Used by bruteforce mode to filter live subdomains.
-func Exists(domain string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// WildcardActive reports whether the parent domain answers for an arbitrary,
+// randomly generated subdomain. When it does, every "resolved" name in this
+// zone is suspect and CNAME matches alone prove nothing.
+func WildcardActive(base string) bool {
+	base = models.NormalizeDomain(base)
+	if base == "" || !strings.Contains(base, ".") {
+		return false
+	}
+	probe := fmt.Sprintf("takeoverx-wildcard-probe-%x.example", time.Now().UnixNano())
+	cctx, cancel := context.WithTimeout(context.Background(), resolveBudget)
 	defer cancel()
-	addrs, err := resolver.LookupHost(ctx, domain)
-	return err == nil && len(addrs) > 0
+	addrs, err := resolver.LookupHost(cctx, probe+"."+base)
+	if err == nil && len(addrs) > 0 {
+		return true
+	}
+	cname, err := resolver.LookupCNAME(cctx, probe+"."+base)
+	return err == nil && cname != "" && cname != probe+"."+base
+}
+
+func dedupe(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if v != "" && !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// ResetCache clears memoized lookups (tests, long-lived processes).
+func ResetCache() {
+	cacheMu.Lock()
+	cache = make(map[string]cacheEntry)
+	cacheMu.Unlock()
 }
 
 func storeCache(domain string, r *models.DNSResult) {
 	cacheMu.Lock()
-	cache[domain] = r
+	cache[domain] = cacheEntry{result: r, at: time.Now()}
 	cacheMu.Unlock()
 }
 
-func isNXDomain(errMsg string) bool {
-	lower := strings.ToLower(errMsg)
-	return strings.Contains(lower, "no such host") ||
-		strings.Contains(lower, "nxdomain") ||
-		strings.Contains(lower, "name does not resolve")
+// CachedCount reports how many lookups are memoized (shown with --stats).
+func CachedCount() int {
+	cacheMu.RLock()
+	defer cacheMu.RUnlock()
+	return len(cache)
 }
 
+// DefaultResolverForTest returns the resolver currently installed, so a test
+// outside this package can restore it after substituting a fake.
+func DefaultResolverForTest() Resolver { return resolver }
+
+// isNotFound reports whether a resolver error means the name definitively does
+// not exist, as opposed to a timeout or a transient server failure.
+func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return dnsErr.IsNotFound
+	}
+	return false
+}
