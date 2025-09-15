@@ -215,16 +215,29 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 	switch {
 	case bodyMatch && confirmed:
 		res.Status = models.StatusVulnerable
+		res.Confidence = models.ConfidenceHigh
 		res.Reason = fmt.Sprintf("%s reports the resource is unclaimed (%q)", svc.Name, bodyFP)
 		res.Remediation = fmt.Sprintf("Remove the dangling %s record, or claim the resource in the %s console.", strings.ToUpper(string(d.RecordType)), svc.Name)
 
+	case bodyMatch && !confirmed:
+		res.Status = models.StatusUnknown
+		res.Confidence = models.ConfidenceLow
+		res.Reason = fmt.Sprintf("%s fingerprint seen once but not on repeat probe — treating as a network artefact", svc.Name)
+
 	case d.IsDead && svc.NXDomain:
 		res.Status = models.StatusVulnerable
+		res.Confidence = models.ConfidenceHigh
 		res.Reason = fmt.Sprintf("%s target no longer resolves, so the name is claimable", svc.Name)
 		res.Remediation = fmt.Sprintf("Remove the %s record or claim the resource at %s.", strings.ToUpper(string(d.RecordType)), svc.DocsURL)
 
+	case d.IsDead:
+		res.Status = models.StatusUnknown
+		res.Confidence = models.ConfidenceMedium
+		res.Reason = fmt.Sprintf("%s target does not resolve; provider takeover is not implied", svc.Name)
+
 	case res.Steps.ProviderFound && probe.Err != "":
 		res.Status = models.StatusUnknown
+		res.Confidence = models.ConfidenceLow
 		res.Reason = fmt.Sprintf("DNS points at %s but the HTTP probe failed: %s", svc.Name, probe.Err)
 
 	default:
@@ -235,8 +248,19 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 		res.Confidence = models.ConfidenceLow
 		switch {
 		case headerMatch:
+			// A provider signature says who is in the path, not whether the
+			// resource is claimed, so it cannot decide the verdict.
 			res.Status = models.StatusUnknown
-			res.Reason = fmt.Sprintf("%s is in the request path (%q)", svc.Name, headerFP)
+			res.Reason = fmt.Sprintf("%s is in the request path (%q), which does not show the resource is unclaimed", svc.Name, headerFP)
+			res.Remediation = "Open the URL and confirm the provider still lists this name as yours."
+		case probe.StatusCode >= 400:
+			// An error page we do not recognise is exactly the shape of a
+			// dangling record pointing at a provider that is missing from the
+			// fingerprint database. Surfacing it as inconclusive is far more
+			// useful than reporting it as safe.
+			res.Status = models.StatusUnknown
+			res.Reason = fmt.Sprintf("%s answered HTTP %d with no known unclaimed fingerprint — worth checking by hand", svc.Name, probe.StatusCode)
+			res.Remediation = "Open the URL and confirm the provider still lists this name as yours."
 		default:
 			res.Status = models.StatusSafe
 			res.Reason = fmt.Sprintf("%s is serving content, so the resource is claimed", svc.Name)

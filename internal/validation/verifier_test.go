@@ -129,6 +129,9 @@ func TestHighConfidenceOnRepeatedBodyMatch(t *testing.T) {
 	if got.Status != models.StatusVulnerable {
 		t.Fatalf("status: %s (%s)", got.Status, got.Reason)
 	}
+	if got.Confidence != models.ConfidenceHigh {
+		t.Fatalf("confidence: %s", got.Confidence)
+	}
 	if !got.Steps.RepeatConfirmed {
 		t.Fatal("repeat confirmation must be recorded")
 	}
@@ -140,6 +143,31 @@ func TestHighConfidenceOnRepeatedBodyMatch(t *testing.T) {
 	}
 }
 
+func TestTransientMatchDowngradedToUnknown(t *testing.T) {
+	bindTestRegistry(t)
+	d := &stubDNS{result: &models.DNSResult{
+		RecordType: models.RecordCNAME, CNAMEChain: []string{"bucket.s3.amazonaws.com"},
+	}}
+	// First probe matches, the repeat does not: almost always a network or
+	// CDN artefact rather than a real finding.
+	h := &stubHTTP{responses: []*models.HTTPResult{
+		{StatusCode: 404, Body: "NoSuchBucket"},
+		{StatusCode: 200, Body: "<html>Welcome</html>"},
+	}}
+	v := newTestVerifier(d, h, false, Config{Repeats: 2})
+
+	got := v.Verify(context.Background(), "x.example.com", "example.com")
+
+	if got.Status == models.StatusVulnerable {
+		t.Fatal("a single unconfirmed match must never be VULNERABLE")
+	}
+	if got.Status != models.StatusUnknown {
+		t.Fatalf("status: %s", got.Status)
+	}
+	if got.Confidence != models.ConfidenceLow {
+		t.Fatalf("confidence: %s", got.Confidence)
+	}
+}
 
 func TestWildcardDNSDowngradesToUnknown(t *testing.T) {
 	bindTestRegistry(t)
@@ -180,6 +208,9 @@ func TestDeadCNAMETargetIsHighConfidence(t *testing.T) {
 	if got.Status != models.StatusVulnerable {
 		t.Fatalf("status: %s (%s)", got.Status, got.Reason)
 	}
+	if got.Confidence != models.ConfidenceHigh {
+		t.Fatalf("confidence: %s", got.Confidence)
+	}
 }
 
 func TestDeadTargetOnNonNXDOMAINProviderStaysUnknown(t *testing.T) {
@@ -196,6 +227,9 @@ func TestDeadTargetOnNonNXDOMAINProviderStaysUnknown(t *testing.T) {
 
 	if got.Status == models.StatusVulnerable {
 		t.Fatal("a dead target only proves a takeover for nxdomain providers")
+	}
+	if got.Confidence != models.ConfidenceMedium {
+		t.Fatalf("confidence: %s", got.Confidence)
 	}
 }
 
@@ -238,6 +272,36 @@ func TestUnknownProviderIsSafe(t *testing.T) {
 	}
 }
 
+func TestHeaderOnlyMatchIsNotAFinding(t *testing.T) {
+	// "Server: cloudfront" appears on every healthy CloudFront site. It proves
+	// the provider is in the path, not that the resource is unclaimed, so it
+	// must never produce a finding.
+	bindTestRegistry(t)
+	d := &stubDNS{result: &models.DNSResult{
+		RecordType: models.RecordCNAME, CNAMEChain: []string{"bucket.s3.amazonaws.com"},
+	}}
+	// AWS S3 is claimable, and the header matches, but the body carries none of
+	// the provider's unclaimed fingerprints.
+	h := &stubHTTP{responses: []*models.HTTPResult{
+		{StatusCode: 200, Body: "<html>the real site</html>", Headers: map[string]string{"Server": "AmazonS3"}},
+		{StatusCode: 200, Body: "<html>the real site</html>", Headers: map[string]string{"Server": "AmazonS3"}},
+	}}
+	v := newTestVerifier(d, h, false, Config{Repeats: 2, TrustHeaders: true})
+
+	got := v.Verify(context.Background(), "cdn.example.com", "example.com")
+
+	if got.Status == models.StatusVulnerable {
+		t.Fatal("a header signature alone must never be a finding")
+	}
+	// The verdict is SAFE, but the reason must make clear that the header
+	// carried no weight, so an operator is not misled into thinking it did.
+	if !strings.Contains(got.Reason, "is in the request path") {
+		t.Fatalf("reason should name the header evidence: %q", got.Reason)
+	}
+	if got.Status != models.StatusUnknown {
+		t.Fatalf("status: %s", got.Status)
+	}
+}
 
 
 func TestBodyMatchStillWinsForClaimableProvider(t *testing.T) {
@@ -255,6 +319,9 @@ func TestBodyMatchStillWinsForClaimableProvider(t *testing.T) {
 	got := v.Verify(context.Background(), "cdn.example.com", "example.com")
 	if got.Status != models.StatusVulnerable {
 		t.Fatalf("a genuine unclaimed response must still be reported: %s (%s)", got.Status, got.Reason)
+	}
+	if got.Confidence != models.ConfidenceHigh {
+		t.Fatalf("confidence: %s", got.Confidence)
 	}
 }
 
