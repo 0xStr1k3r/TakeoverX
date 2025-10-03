@@ -325,6 +325,31 @@ func TestBodyMatchStillWinsForClaimableProvider(t *testing.T) {
 	}
 }
 
+func TestUnstableDNSRecordBlocksHighConfidence(t *testing.T) {
+	bindTestRegistry(t)
+	d := &stubDNS{
+		result: &models.DNSResult{
+			RecordType: models.RecordCNAME, CNAMEChain: []string{"a.s3.amazonaws.com"},
+		},
+		second: &models.DNSResult{
+			RecordType: models.RecordCNAME, CNAMEChain: []string{"b.s3.amazonaws.com"},
+		},
+	}
+	h := &stubHTTP{responses: []*models.HTTPResult{
+		{StatusCode: 404, Body: "NoSuchBucket"},
+		{StatusCode: 404, Body: "NoSuchBucket"},
+	}}
+	v := newTestVerifier(d, h, false, Config{Repeats: 2, RecheckDNS: true})
+
+	got := v.Verify(context.Background(), "flap.example.com", "example.com")
+
+	if got.Steps.RecheckStable {
+		t.Fatal("DNS answer changed on re-resolve and must not be called stable")
+	}
+	if got.Confidence == models.ConfidenceHigh {
+		t.Fatal("a flapping record must not yield high confidence")
+	}
+}
 
 func TestSkipVerifyReturnsUnknownNotVulnerable(t *testing.T) {
 	bindTestRegistry(t)
@@ -362,7 +387,7 @@ func TestVerifyRespectsContextCancellation(t *testing.T) {
 		RecordType: models.RecordCNAME, CNAMEChain: []string{"b.s3.amazonaws.com"},
 	}}
 	h := &stubHTTP{responses: []*models.HTTPResult{{StatusCode: 404, Body: "NoSuchBucket"}}}
-	v := newTestVerifier(d, h, false, Config{Repeats: 5, RepeatDelay: time.Hour})
+	v := newTestVerifier(d, h, false, Config{Repeats: 5, RepeatDelay: time.Hour, RecheckDNS: true})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()

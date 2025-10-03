@@ -21,6 +21,7 @@ type Steps struct {
 	BodyMatched     bool `json:"body_matched"`
 	HeaderMatched   bool `json:"header_matched"`
 	RepeatConfirmed bool `json:"repeat_confirmed"`
+	RecheckStable   bool `json:"recheck_stable"`
 }
 
 // Passed returns the human-readable gates that succeeded, for --explain.
@@ -37,6 +38,7 @@ func (s Steps) Passed() []string {
 	add(s.BodyMatched, "provider fingerprint in response body")
 	add(s.HeaderMatched, "provider signature in response header")
 	add(s.RepeatConfirmed, "fingerprint stable across repeated probes")
+	add(s.RecheckStable, "DNS answer stable on re-resolution")
 	return out
 }
 
@@ -44,13 +46,14 @@ func (s Steps) Passed() []string {
 type Config struct {
 	Repeats      int           // independent probes that must agree (>=1)
 	RepeatDelay  time.Duration // pause between repeats
+	RecheckDNS   bool          // re-resolve after HTTP to catch flapping records
 	TrustHeaders bool          // allow header-only matches
 	SkipVerify   bool          // report the raw CNAME match without probing
 }
 
 // DefaultConfig is the accuracy-first preset used unless -n is passed.
 func DefaultConfig() Config {
-	return Config{Repeats: 2, RepeatDelay: 250 * time.Millisecond, TrustHeaders: true}
+	return Config{Repeats: 2, RepeatDelay: 250 * time.Millisecond, RecheckDNS: true, TrustHeaders: true}
 }
 
 // Result carries the verdict plus every gate that produced it.
@@ -194,6 +197,14 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 	}
 	res.Steps.RepeatConfirmed = confirmed
 
+	// ── Step 6: DNS stability ───────────────────────────────────────────────
+	if v.cfg.RecheckDNS {
+		dns.ResetCache()
+		again := v.resolver(host)
+		res.Steps.RecheckStable = sameTarget(d, again)
+	} else {
+		res.Steps.RecheckStable = true
+	}
 
 	// ── Verdict ─────────────────────────────────────────────────────────────
 	//
@@ -213,7 +224,7 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 	// yours" page, or a target that has stopped existing for a provider whose
 	// takeover manifests that way.
 	switch {
-	case bodyMatch && confirmed:
+	case bodyMatch && confirmed && res.Steps.RecheckStable:
 		res.Status = models.StatusVulnerable
 		res.Confidence = models.ConfidenceHigh
 		res.Reason = fmt.Sprintf("%s reports the resource is unclaimed (%q)", svc.Name, bodyFP)
@@ -296,6 +307,20 @@ func (v *Verifier) reconfirm(ctx context.Context, host string, svc *models.Servi
 		}
 	}
 	return true
+}
+
+// sameTarget reports whether two resolutions agree on the terminal target.
+func sameTarget(a, b *models.DNSResult) bool {
+	if a.RecordType != b.RecordType {
+		return false
+	}
+	if len(a.CNAMEChain) == 0 && len(b.CNAMEChain) == 0 {
+		return true
+	}
+	if len(a.CNAMEChain) == 0 || len(b.CNAMEChain) == 0 {
+		return false
+	}
+	return strings.EqualFold(a.CNAMEChain[len(a.CNAMEChain)-1], b.CNAMEChain[len(b.CNAMEChain)-1])
 }
 
 // The registry is installed once at startup by services.SetRegistry.
