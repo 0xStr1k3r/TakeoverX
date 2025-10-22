@@ -211,6 +211,9 @@ func TestDeadCNAMETargetIsHighConfidence(t *testing.T) {
 	if got.Confidence != models.ConfidenceHigh {
 		t.Fatalf("confidence: %s", got.Confidence)
 	}
+	if !got.Steps.DeadTarget {
+		t.Fatal("dead target step not recorded")
+	}
 }
 
 func TestDeadTargetOnNonNXDOMAINProviderStaysUnknown(t *testing.T) {

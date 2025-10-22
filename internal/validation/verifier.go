@@ -190,6 +190,7 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 	}
 	res.Steps.BodyMatched = bodyMatch
 	res.Steps.HeaderMatched = headerMatch && v.cfg.TrustHeaders
+	res.Steps.DeadTarget = d.IsDead
 
 	confirmed := false
 	if bodyMatch || (headerMatch && v.cfg.TrustHeaders) {
