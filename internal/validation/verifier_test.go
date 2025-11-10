@@ -59,6 +59,14 @@ func bindTestRegistry(t *testing.T) {
 		Fingerprints: []string{"cloudflare"},
 		Claimable:    false, Severity: "info",
 	}
+	// AWS verifies the certificate SAN before attaching an alternate domain
+	// name to a distribution, so a dangling CloudFront record is not a
+	// takeover on its own.
+	cfront := &models.ServiceFingerprint{
+		Name: "AWS CloudFront", CNAME: []string{"cloudfront.net"},
+		HeaderFingerprints: []string{"cloudfront"},
+		Claimable:          false, Severity: "info",
+	}
 	BindRegistry(
 		func(chain []string) (*models.ServiceFingerprint, string) {
 			for i := len(chain) - 1; i >= 0; i-- {
@@ -71,6 +79,9 @@ func bindTestRegistry(t *testing.T) {
 				}
 				if strings.HasSuffix(h, "cloudflare.net") {
 					return cold, chain[i]
+				}
+				if strings.HasSuffix(h, "cloudfront.net") {
+					return cfront, chain[i]
 				}
 			}
 			return nil, ""
@@ -298,14 +309,32 @@ func TestHeaderOnlyMatchIsNotAFinding(t *testing.T) {
 	}
 	// The verdict is SAFE, but the reason must make clear that the header
 	// carried no weight, so an operator is not misled into thinking it did.
-	if !strings.Contains(got.Reason, "is in the request path") {
-		t.Fatalf("reason should name the header evidence: %q", got.Reason)
-	}
-	if got.Status != models.StatusUnknown {
-		t.Fatalf("status: %s", got.Status)
+	if !strings.Contains(got.Reason, "does not by itself show the resource is unclaimed") {
+		t.Fatalf("reason should record that the header proved nothing: %q", got.Reason)
 	}
 }
 
+func TestNonClaimableProviderIsNeverVulnerable(t *testing.T) {
+	// A provider with no claim path cannot be taken over no matter what it
+	// serves, so it is reported safe even when every other signal fires.
+	bindTestRegistry(t)
+	d := &stubDNS{result: &models.DNSResult{
+		RecordType: models.RecordCNAME, CNAMEChain: []string{"app.cloudfront.net"},
+	}}
+	h := &stubHTTP{responses: []*models.HTTPResult{
+		{StatusCode: 404, Body: "cloudflare", Headers: map[string]string{"Server": "cloudfront"}},
+		{StatusCode: 404, Body: "cloudflare", Headers: map[string]string{"Server": "cloudfront"}},
+	}}
+	v := newTestVerifier(d, h, false, Config{Repeats: 2, TrustHeaders: true})
+
+	got := v.Verify(context.Background(), "site.example.com", "example.com")
+	if got.Status == models.StatusVulnerable {
+		t.Fatal("a provider with no claim path must never produce a finding")
+	}
+	if !strings.Contains(got.Reason, "cannot be claimed") {
+		t.Fatalf("reason should say the resource cannot be claimed: %q", got.Reason)
+	}
+}
 
 func TestBodyMatchStillWinsForClaimableProvider(t *testing.T) {
 	// The correction must not weaken real detections.

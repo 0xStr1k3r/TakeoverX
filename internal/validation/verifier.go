@@ -183,10 +183,12 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 
 	probe := v.prober(ctx, host)
 	bodyMatch, bodyFP := false, ""
-	headerMatch, headerFP := false, ""
+	headerMatch := false
 	if probe.Err == "" {
 		bodyMatch, bodyFP = bodyFingerprint(svc, probe.Body)
+		var headerFP string
 		headerMatch, headerFP = headerFingerprint(svc, probe.Headers)
+		_ = headerFP
 	}
 	res.Steps.BodyMatched = bodyMatch
 	res.Steps.HeaderMatched = headerMatch && v.cfg.TrustHeaders
@@ -225,6 +227,12 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 	// yours" page, or a target that has stopped existing for a provider whose
 	// takeover manifests that way.
 	switch {
+	case !svc.Claimable:
+		res.Status = models.StatusSafe
+		res.Confidence = models.ConfidenceLow
+		res.Reason = fmt.Sprintf("%s is serving the name; %s resources cannot be claimed, so this is not a takeover", svc.Name, svc.Name)
+		res.Remediation = ""
+
 	case bodyMatch && confirmed && res.Steps.RecheckStable:
 		res.Status = models.StatusVulnerable
 		res.Confidence = models.ConfidenceHigh
@@ -236,7 +244,7 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 		res.Confidence = models.ConfidenceLow
 		res.Reason = fmt.Sprintf("%s fingerprint seen once but not on repeat probe — treating as a network artefact", svc.Name)
 
-	case d.IsDead && svc.NXDomain:
+	case d.IsDead && svc.NXDomain && svc.Claimable:
 		res.Status = models.StatusVulnerable
 		res.Confidence = models.ConfidenceHigh
 		res.Reason = fmt.Sprintf("%s target no longer resolves, so the name is claimable", svc.Name)
@@ -259,12 +267,6 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 		// says who is in the path, not whether the resource is claimed.
 		res.Confidence = models.ConfidenceLow
 		switch {
-		case headerMatch:
-			// A provider signature says who is in the path, not whether the
-			// resource is claimed, so it cannot decide the verdict.
-			res.Status = models.StatusUnknown
-			res.Reason = fmt.Sprintf("%s is in the request path (%q), which does not show the resource is unclaimed", svc.Name, headerFP)
-			res.Remediation = "Open the URL and confirm the provider still lists this name as yours."
 		case probe.StatusCode >= 400:
 			// An error page we do not recognise is exactly the shape of a
 			// dangling record pointing at a provider that is missing from the
@@ -276,6 +278,9 @@ func (v *Verifier) Verify(ctx context.Context, host string, wildcardBase string)
 		default:
 			res.Status = models.StatusSafe
 			res.Reason = fmt.Sprintf("%s is serving content, so the resource is claimed", svc.Name)
+			if headerMatch {
+				res.Reason += fmt.Sprintf(" (%s is in the request path, which does not by itself show the resource is unclaimed)", svc.Name)
+			}
 		}
 	}
 
