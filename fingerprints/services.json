@@ -1,308 +1,1070 @@
 [
   {
-    "name": "AWS S3",
-    "cname": ["s3.amazonaws.com", ".s3-website"],
-    "fingerprints": ["NoSuchBucket", "The specified bucket does not exist", "NoSuchKey"],
-    "nxdomain": false
+    "name": "Acquia",
+    "cname": [
+      "acquia-sites.com",
+      "cloud.acquia.com"
+    ],
+    "fingerprints": [
+      "The requested URL was not found on this server."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://docs.acquia.com/"
   },
   {
-    "name": "AWS Elastic Beanstalk",
-    "cname": ["elasticbeanstalk.com"],
-    "fingerprints": [],
-    "nxdomain": true
+    "name": "Airtable",
+    "cname": [
+      "airtable.com"
+    ],
+    "fingerprints": [
+      "Not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://support.airtable.com/"
+  },
+  {
+    "name": "Akamai",
+    "cname": [
+      "akamaized.net",
+      "akamai.net",
+      "edgekey.net",
+      "edgesuite.net"
+    ],
+    "header_fingerprints": [
+      "AkamaiGHost"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://www.akamai.com/products/edge/"
+  },
+  {
+    "name": "Alibaba Cloud OSS",
+    "cname": [
+      "aliyuncs.com",
+      "alibaba-inc.com"
+    ],
+    "fingerprints": [
+      "NoSuchBucket",
+      "The specified bucket does not exist."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://www.alibabacloud.com/help/doc-detail/31859.htm"
+  },
+  {
+    "name": "Atlassian",
+    "cname": [
+      "atlassian.net",
+      "atlassian.com"
+    ],
+    "fingerprints": [
+      "Unknown site",
+      "If you typed the web address, check it is correct."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://support.atlassian.com/"
+  },
+  {
+    "name": "AWS API Gateway",
+    "cname": [
+      "execute-api"
+    ],
+    "fingerprints": [
+      "Forbidden"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html"
   },
   {
     "name": "AWS CloudFront",
-    "cname": ["cloudfront.net"],
-    "fingerprints": ["Bad request.", "ERROR: The request could not be satisfied"],
-    "nxdomain": false
+    "cname": [
+      "cloudfront.net"
+    ],
+    "header_fingerprints": [],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/HowToDistributeCreateDist.html"
   },
   {
-    "name": "Azure Web Apps",
-    "cname": [".azurewebsites.net", ".cloudapp.net", ".cloudapp.azure.com", ".trafficmanager.net", ".blob.core.windows.net", ".azure-api.net", ".azurehdinsight.net", ".azureedge.net"],
-    "fingerprints": ["404 Web Site not found"],
-    "nxdomain": true
+    "name": "AWS Elastic Beanstalk",
+    "cname": [
+      "elasticbeanstalk.com"
+    ],
+    "fingerprints": [
+      "Environment name is not valid",
+      "The specified environment does not exist"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/create_environments.html"
   },
   {
-    "name": "GitHub Pages",
-    "cname": ["github.io"],
-    "fingerprints": ["There isn't a GitHub Pages site here.", "For root URLs (like http://example.com/) you must provide an index.html file"],
-    "nxdomain": false
+    "name": "AWS Load Balancer",
+    "cname": [
+      "elb.amazonaws.com",
+      "elb.cloud",
+      "alb.amazonaws.com"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "medium",
+    "docs": "https://docs.aws.amazon.com/elasticloadbalancing/"
   },
   {
-    "name": "GitLab Pages",
-    "cname": ["gitlab.io"],
-    "fingerprints": ["The page you're looking for could not be found"],
-    "nxdomain": false
+    "name": "AWS S3",
+    "cname": [
+      "s3.amazonaws.com",
+      "s3-website"
+    ],
+    "fingerprints": [
+      "NoSuchBucket",
+      "The specified bucket does not exist",
+      "NoSuchKey"
+    ],
+    "header_fingerprints": [
+      "AmazonS3"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/HostingWebsite.html"
+  },
+  {
+    "name": "Azure App Service",
+    "cname": [
+      "azurewebsites.net",
+      "azurewebsites.com"
+    ],
+    "fingerprints": [
+      "404 Web Site not found",
+      "404 - Web site not found."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "critical",
+    "docs": "https://learn.microsoft.com/azure/app-service/"
+  },
+  {
+    "name": "Azure CDN",
+    "cname": [
+      "azureedge.net",
+      "azurefd.net",
+      "azureedge.com"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://learn.microsoft.com/azure/cdn/"
+  },
+  {
+    "name": "Azure Static Web Apps",
+    "cname": [
+      "azurestaticapps.net"
+    ],
+    "fingerprints": [
+      "The requested URL was not found on this server."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://learn.microsoft.com/azure/static-web-apps/"
+  },
+  {
+    "name": "Azure Traffic Manager",
+    "cname": [
+      "trafficmanager.net"
+    ],
+    "fingerprints": [
+      "DNS name does not exist",
+      "The requested hostname is not found for this traffic manager profile."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://learn.microsoft.com/azure/traffic-manager/"
+  },
+  {
+    "name": "Backblaze B2",
+    "cname": [
+      "backblazeb2.com"
+    ],
+    "fingerprints": [
+      "Not Found",
+      "NoSuchBucket"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://www.backblaze.com/docs/cloud-storage.html"
+  },
+  {
+    "name": "BigCommerce",
+    "cname": [
+      "bigcommerce.com",
+      "mybigcommerce.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://support.bigcommerce.com/"
   },
   {
     "name": "Bitbucket",
-    "cname": ["bitbucket.io"],
-    "fingerprints": ["Repository not found"],
-    "nxdomain": false
+    "cname": [
+      "bitbucket.io"
+    ],
+    "fingerprints": [
+      "Repository not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://support.atlassian.com/bitbucket-cloud/"
   },
   {
-    "name": "Heroku",
-    "cname": ["herokuapp.com", "herokudns.com", "herokussl.com"],
-    "fingerprints": ["herokucdn.com/error-pages/no-such-app.html", "No such app"],
-    "nxdomain": false
+    "name": "Bitly",
+    "cname": [
+      "bit.ly",
+      "bitly.com"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://support.bitly.com/"
   },
   {
-    "name": "Netlify",
-    "cname": ["netlify.app", "netlify.com"],
-    "fingerprints": ["Not Found - Request ID", "netlify.app"],
-    "nxdomain": false
+    "name": "Blogger",
+    "cname": [
+      "blogspot.com",
+      "blogger.com"
+    ],
+    "fingerprints": [
+      "This blog has been deleted",
+      "Sorry, the page you were looking for doesn't exist."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://support.google.com/blogger/"
   },
   {
-    "name": "Vercel",
-    "cname": ["vercel.app", ".vercel.app"],
-    "fingerprints": ["The deployment could not be found on Vercel", "DEPLOYMENT_NOT_FOUND"],
-    "nxdomain": false
+    "name": "Bunny CDN",
+    "cname": [
+      "b-cdn.net",
+      "bunnycdn.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://docs.bunny.net/"
   },
   {
-    "name": "Fastly",
-    "cname": ["fastly.net"],
-    "fingerprints": ["Fastly error: unknown domain", "Please check that this domain has been added to a service"],
-    "nxdomain": false
+    "name": "Calendly",
+    "cname": [
+      "calendly.com"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://help.calendly.com/"
   },
   {
-    "name": "Shopify",
-    "cname": ["myshopify.com"],
-    "fingerprints": ["Sorry, this shop is currently unavailable.", "Only one step left!"],
-    "nxdomain": false
-  },
-  {
-    "name": "Firebase Hosting",
-    "cname": ["firebaseapp.com", "web.app"],
-    "fingerprints": ["Firebase App named '<default>' already exists", "The requested URL was not found on this server."],
-    "nxdomain": false
-  },
-  {
-    "name": "Google Cloud Storage",
-    "cname": ["storage.googleapis.com", ".storage.googleapis.com"],
-    "fingerprints": ["NoSuchBucket", "The specified bucket does not exist"],
-    "nxdomain": false
-  },
-  {
-    "name": "Surge",
-    "cname": ["surge.sh"],
-    "fingerprints": ["project not found", "surge.sh"],
-    "nxdomain": false
-  },
-  {
-    "name": "Tumblr",
-    "cname": ["domains.tumblr.com"],
-    "fingerprints": ["Whatever you were looking for doesn't currently exist at this address.", "There's nothing here."],
-    "nxdomain": false
-  },
-  {
-    "name": "WordPress",
-    "cname": ["wordpress.com"],
-    "fingerprints": ["Do you want to register", "doesn't exist"],
-    "nxdomain": false
-  },
-  {
-    "name": "Ghost",
-    "cname": ["ghost.io"],
-    "fingerprints": ["The thing you were looking for is no longer here, or never was"],
-    "nxdomain": false
-  },
-  {
-    "name": "Zendesk",
-    "cname": ["zendesk.com"],
-    "fingerprints": ["Help Center Closed", "Oops, this help center no longer exists"],
-    "nxdomain": false
-  },
-  {
-    "name": "Intercom",
-    "cname": ["custom.intercom.help"],
-    "fingerprints": ["This page is reserved for artistic dogs.", "Uh oh. That page doesn't exist."],
-    "nxdomain": false
-  },
-  {
-    "name": "Helpscout",
-    "cname": ["helpscoutdocs.com"],
-    "fingerprints": ["No settings were found for this company:"],
-    "nxdomain": false
-  },
-  {
-    "name": "Pantheon",
-    "cname": ["pantheonsite.io"],
-    "fingerprints": ["The gods are wise, but do not know of the site which you seek.", "404 error unknown site!"],
-    "nxdomain": false
-  },
-  {
-    "name": "Readme.io",
-    "cname": ["readme.io"],
-    "fingerprints": ["Project doesnt exist... yet!", "We couldn't find that page"],
-    "nxdomain": false
-  },
-  {
-    "name": "Squarespace",
-    "cname": ["squarespace.com"],
-    "fingerprints": ["No Such Account", "squarespace.com"],
-    "nxdomain": false
-  },
-  {
-    "name": "Webflow",
-    "cname": ["proxy.webflow.com", "proxy-ssl.webflow.com"],
-    "fingerprints": ["The page you are looking for doesn't exist or has been moved."],
-    "nxdomain": false
-  },
-  {
-    "name": "Strikingly",
-    "cname": ["strikingly.com", ".s.strikinglydns.com"],
-    "fingerprints": ["page not found", "But if you're looking to build your very own website"],
-    "nxdomain": false
-  },
-  {
-    "name": "Unbounce",
-    "cname": ["unbouncepages.com"],
-    "fingerprints": ["The requested URL was not found on this server.", "CLIENT_DELETED"],
-    "nxdomain": false
-  },
-  {
-    "name": "Campaign Monitor",
-    "cname": ["createsend.com"],
-    "fingerprints": ["Double check the URL or", "Trying to access your account?"],
-    "nxdomain": false
-  },
-  {
-    "name": "Pingdom",
-    "cname": ["stats.pingdom.com"],
-    "fingerprints": ["This public report page has not been activated"],
-    "nxdomain": false
-  },
-  {
-    "name": "Freshdesk",
-    "cname": ["freshdesk.com"],
-    "fingerprints": ["There is no helpdesk here with that URL."],
-    "nxdomain": false
-  },
-  {
-    "name": "Uservoice",
-    "cname": ["uservoice.com"],
-    "fingerprints": ["This UserVoice subdomain is currently available!", "This forum is now closed"],
-    "nxdomain": false
-  },
-  {
-    "name": "Desk.com",
-    "cname": ["desk.com"],
-    "fingerprints": ["Sorry, We Couldn't Find That Page", "Please try again or go to"],
-    "nxdomain": false
-  },
-  {
-    "name": "Aftership",
-    "cname": ["aftership.com"],
-    "fingerprints": ["Oops.", "The page you're looking for doesn't exist."],
-    "nxdomain": false
+    "name": "CapRover",
+    "cname": [
+      "caprover.com",
+      "oncaprover.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://caprover.com/"
   },
   {
     "name": "Cargo",
-    "cname": ["cargocollective.com"],
-    "fingerprints": ["404 Not Found"],
-    "nxdomain": false
+    "cname": [
+      "cargoclient.com",
+      "cargo.site"
+    ],
+    "fingerprints": [
+      "Nothing to see here"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://cargo.site/"
   },
   {
-    "name": "Instapage",
-    "cname": ["instapage.com", "pageserve.co"],
-    "fingerprints": ["Looks Like You're Lost"],
-    "nxdomain": false
+    "name": "Carrd",
+    "cname": [
+      "carrd.co"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://carrd.co/"
   },
   {
-    "name": "Acquia",
-    "cname": ["acquia-test.co", "acquia.com"],
-    "fingerprints": ["The site you are looking for could not be found.", "Web Site Not Found"],
-    "nxdomain": false
+    "name": "Cloudapp",
+    "cname": [
+      "cloudapp.net",
+      "cloudapp.io"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://www.cloudapp.net/"
+  },
+  {
+    "name": "Cloudflare",
+    "cname": [
+      "cloudflare.net",
+      "cloudflaressl.com",
+      "workers.dev"
+    ],
+    "header_fingerprints": [
+      "Cloudflare"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://developers.cloudflare.com/"
   },
   {
     "name": "Cloudflare Pages",
-    "cname": ["pages.dev"],
-    "fingerprints": ["not found"],
-    "nxdomain": true
+    "cname": [
+      "pages.dev"
+    ],
+    "fingerprints": [
+      "Not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://developers.cloudflare.com/pages/"
   },
   {
-    "name": "Render",
-    "cname": ["onrender.com"],
-    "fingerprints": ["service not found", "There's no page here"],
-    "nxdomain": false
+    "name": "CodeSandbox",
+    "cname": [
+      "codesandbox.io"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://codesandbox.io/docs"
+  },
+  {
+    "name": "Contentful",
+    "cname": [
+      "ctfassets.net",
+      "contentful.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://www.contentful.com/help/"
+  },
+  {
+    "name": "Coolify",
+    "cname": [
+      "coolify.io"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://coolify.io/docs"
+  },
+  {
+    "name": "cPanel",
+    "cname": [
+      "cpanel.net",
+      "cloudlinux.com"
+    ],
+    "fingerprints": [
+      "The requested URL was not found on this server."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://cpanel.net/"
+  },
+  {
+    "name": "Deno Deploy",
+    "cname": [
+      "deno.dev"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://docs.deno.com/deploy/"
+  },
+  {
+    "name": "DigitalOcean",
+    "cname": [
+      "digitaloceanspaces.com",
+      "spaces.digitalocean.com"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://docs.digitalocean.com/products/spaces/"
+  },
+  {
+    "name": "Dnsimple",
+    "cname": [
+      "dnsimple.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://support.dnsimple.com/"
+  },
+  {
+    "name": "Dokku",
+    "cname": [
+      "dokku.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://dokku.com/"
+  },
+  {
+    "name": "Drupal",
+    "cname": [
+      "drupalfiles.com",
+      "drush.in"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://www.drupal.org/"
+  },
+  {
+    "name": "Expo",
+    "cname": [
+      "expo.dev",
+      "expo.io"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://docs.expo.dev/"
+  },
+  {
+    "name": "Fastly",
+    "cname": [
+      "fastly.net"
+    ],
+    "header_fingerprints": [
+      "Fastly"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://docs.fastly.com/"
+  },
+  {
+    "name": "Firebase Hosting",
+    "cname": [
+      "firebaseapp.com",
+      "web.app",
+      "firebaseio.com"
+    ],
+    "fingerprints": [
+      "Site Not Found",
+      "Error 404 - Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://firebase.google.com/docs/hosting"
   },
   {
     "name": "Fly.io",
-    "cname": ["fly.dev"],
-    "fingerprints": ["Oops! Something went wrong"],
-    "nxdomain": false
+    "cname": [
+      "fly.dev",
+      "fly.io"
+    ],
+    "fingerprints": [
+      "Could not resolve",
+      "502 Bad Gateway"
+    ],
+    "header_fingerprints": [
+      "fly-request-id"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://fly.io/docs/"
   },
   {
-    "name": "Railway",
-    "cname": ["railway.app", "up.railway.app"],
-    "fingerprints": ["Application not found"],
-    "nxdomain": false
+    "name": "Formspree",
+    "cname": [
+      "formspree.io"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://formspree.io/help/"
   },
   {
-    "name": "Statuspage",
-    "cname": ["statuspage.io"],
-    "fingerprints": ["Better Status Communication"],
-    "nxdomain": false
+    "name": "Freshworks",
+    "cname": [
+      "freshworks.com"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://support.freshworks.com/"
   },
   {
-    "name": "Agile CRM",
-    "cname": ["agilecrm.com"],
-    "fingerprints": ["Sorry, this page is no longer available."],
-    "nxdomain": false
+    "name": "Gcore",
+    "cname": [
+      "gcdn.co",
+      "gcore.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://gcore.com/docs/"
   },
   {
-    "name": "Canny",
-    "cname": ["canny.io"],
-    "fingerprints": ["Company Not Found", "There is no such company. Did you enter the right URL?"],
-    "nxdomain": false
+    "name": "Ghost",
+    "cname": [
+      "ghost.io",
+      "ghost.org"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://ghost.org/docs/"
   },
   {
-    "name": "Anima",
-    "cname": ["animaapp.io"],
-    "fingerprints": ["The page you were looking for does not exist."],
-    "nxdomain": false
+    "name": "GitHub Pages",
+    "cname": [
+      "github.io",
+      "github.map.fastly.net"
+    ],
+    "fingerprints": [
+      "There isn't a GitHub Pages site here.",
+      "404 - Not Found"
+    ],
+    "ip_ranges": [
+      "185.199.108.0/22",
+      "185.199.109.0/22",
+      "185.199.110.0/22",
+      "185.199.111.0/22"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://docs.github.com/en/pages/getting-started-with-github-pages/managing-custom-domains-for-your-github-pages-site"
   },
   {
-    "name": "JetBrains",
-    "cname": ["myjetbrains.com"],
-    "fingerprints": ["is not a registered InCloud YouTrack."],
-    "nxdomain": false
+    "name": "GitLab Pages",
+    "cname": [
+      "gitlab.io"
+    ],
+    "fingerprints": [
+      "404 Not Found",
+      "The page could not be found or does not exist"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://docs.gitlab.com/ee/user/project/pages/"
   },
   {
-    "name": "Helpjuice",
-    "cname": ["helpjuice.com"],
-    "fingerprints": ["We could not find what you're looking for."],
-    "nxdomain": false
+    "name": "Glitch",
+    "cname": [
+      "glitch.me"
+    ],
+    "fingerprints": [
+      "This site is no longer available."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://help.glitch.com/"
   },
   {
-    "name": "Teamwork",
-    "cname": ["teamwork.com"],
-    "fingerprints": ["Oops - We didn't find your site."],
-    "nxdomain": false
+    "name": "Google App Engine",
+    "cname": [
+      "appspot.com",
+      "appengine.google.com"
+    ],
+    "fingerprints": [
+      "The requested URL was not found on this server."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://cloud.google.com/appengine/docs/"
   },
   {
-    "name": "Brightcove",
-    "cname": ["bcvp0rtal.com", "brightcovegallery.com"],
-    "fingerprints": ["Error Code: 404"],
-    "nxdomain": false
+    "name": "Google Cloud Functions",
+    "cname": [
+      "cloudfunctions.net",
+      "run.app"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://cloud.google.com/functions/docs/"
   },
   {
-    "name": "Bigcartel",
-    "cname": ["bigcartel.com"],
-    "fingerprints": ["Oops! We couldn't find that page."],
-    "nxdomain": false
+    "name": "Google Cloud Storage",
+    "cname": [
+      "storage.googleapis.com"
+    ],
+    "fingerprints": [
+      "The specified bucket does not exist.",
+      "NoSuchBucket"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://cloud.google.com/storage/docs/hosting-static-website"
   },
   {
-    "name": "Simplebooklet",
-    "cname": ["simplebooklet.com"],
-    "fingerprints": ["We can't find this"],
-    "nxdomain": false
+    "name": "Heroku",
+    "cname": [
+      "herokuapp.com",
+      "herokudns.com",
+      "herokussl.com"
+    ],
+    "fingerprints": [
+      "No such app",
+      "herokucdn.com/error-pages/no-such-app.html"
+    ],
+    "header_fingerprints": [
+      "Server: Cowboy"
+    ],
+    "nxdomain": true,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://devcenter.heroku.com/articles/managing-apps#app-name"
   },
   {
-    "name": "Wishpond",
-    "cname": ["wishpond.com"],
-    "fingerprints": ["https://www.wishpond.com/404"],
-    "nxdomain": false
+    "name": "Hetzner",
+    "cname": [
+      "hetzner.com",
+      "hetzner.de"
+    ],
+    "fingerprints": [
+      "Error 502 - Bad Gateway"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://docs.hetzner.com/"
+  },
+  {
+    "name": "HubSpot",
+    "cname": [
+      "hubspot.com",
+      "hs-sites.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://knowledge.hubspot.com/"
+  },
+  {
+    "name": "imgsafe",
+    "cname": [
+      "imgsafe.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://imgsafe.com/"
+  },
+  {
+    "name": "Imperva",
+    "cname": [
+      "incapnetas.net",
+      "imperva.com"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://docs.imperva.com/"
+  },
+  {
+    "name": "Infomaniak",
+    "cname": [
+      "infomaniak.com",
+      "infomaniak.ch"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://www.infomaniak.com/en/support/"
+  },
+  {
+    "name": "Intercom",
+    "cname": [
+      "intercom.io"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://intercom.com/help/"
+  },
+  {
+    "name": "jsDelivr",
+    "cname": [
+      "jsdelivr.net",
+      "jsdelivr.com"
+    ],
+    "fingerprints": [
+      "Couldn't resolve the hostname"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://www.jsdelivr.com/documentation"
+  },
+  {
+    "name": "Kamatera",
+    "cname": [
+      "kamatera.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://kamatera.com/"
+  },
+  {
+    "name": "KeyCDN",
+    "cname": [
+      "kxcdn.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://www.keycdn.com/support/"
+  },
+  {
+    "name": "Koyeb",
+    "cname": [
+      "koyeb.app"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://www.koyeb.com/docs"
+  },
+  {
+    "name": "Leaseweb",
+    "cname": [
+      "leaseweb.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://www.leaseweb.com/en/"
+  },
+  {
+    "name": "Linktree",
+    "cname": [
+      "linktr.ee"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://help.linktr.ee/"
+  },
+  {
+    "name": "Linode Object Storage",
+    "cname": [
+      "linodeobjects.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://techdocs.akamai.com/cloud-computing/docs/linode-object-storage"
+  },
+  {
+    "name": "Mailchimp",
+    "cname": [
+      "mailchimp.com",
+      "list-manage.com",
+      "chimpstatic.com"
+    ],
+    "fingerprints": [
+      "Email address is not valid."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://mailchimp.com/help/"
+  },
+  {
+    "name": "Mailgun",
+    "cname": [
+      "mailgun.org"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://documentation.mailgun.com/"
+  },
+  {
+    "name": "Namecheap",
+    "cname": [
+      "namecheap.com",
+      "nc.click"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://www.namecheap.com/support/"
+  },
+  {
+    "name": "Netlify",
+    "cname": [
+      "netlify.app",
+      "netlify.com"
+    ],
+    "fingerprints": [
+      "Not found - DNS points to Netlify",
+      "Page Not Found"
+    ],
+    "header_fingerprints": [
+      "X-Nf-Request-Id",
+      "X-Netlify-Request-Id"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://docs.netlify.com/"
+  },
+  {
+    "name": "Nexcess",
+    "cname": [
+      "nexcess.net"
+    ],
+    "fingerprints": [
+      "The requested URL was not found on this server."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://help.nexcess.net/"
+  },
+  {
+    "name": "Northflank",
+    "cname": [
+      "northflank.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://northflank.com/docs/"
+  },
+  {
+    "name": "Notion",
+    "cname": [
+      "notion.site"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://www.notion.so/help"
+  },
+  {
+    "name": "NS1",
+    "cname": [
+      "ns1.com",
+      "dns.google"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://www.ns1.com/docs"
+  },
+  {
+    "name": "Observable",
+    "cname": [
+      "observablehq.com"
+    ],
+    "fingerprints": [
+      "Not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://observablehq.com/"
+  },
+  {
+    "name": "OVH",
+    "cname": [
+      "ovh.net",
+      "ovh.com"
+    ],
+    "fingerprints": [
+      "This domain name is not associated with any website."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://help.ovhcloud.com/"
+  },
+  {
+    "name": "Pantheon",
+    "cname": [
+      "pantheonsite.io",
+      "pantheon.io"
+    ],
+    "fingerprints": [
+      "The gods are wise, but do not know of the site which you seek."
+    ],
+    "nxdomain": true,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://pantheon.io/docs/platform-domain"
+  },
+  {
+    "name": "Plesk",
+    "cname": [
+      "plesk.com",
+      "plesk.io"
+    ],
+    "fingerprints": [
+      "The requested URL was not found on this server."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://docs.plesk.com/"
+  },
+  {
+    "name": "Prismic",
+    "cname": [
+      "prismic.io",
+      "cdn.prismic.io"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://prismic.io/docs"
+  },
+  {
+    "name": "Rackspace",
+    "cname": [
+      "rackspace.com",
+      "cloudfiles.net"
+    ],
+    "fingerprints": [
+      "The specified bucket does not exist."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://docs.rackspace.com/docs/cloud-files"
   }
 ]
