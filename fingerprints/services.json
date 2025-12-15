@@ -1066,5 +1066,233 @@
     "claimable": true,
     "severity": "medium",
     "docs": "https://docs.rackspace.com/docs/cloud-files"
+  },
+  {
+    "name": "Read the Docs",
+    "cname": [
+      "readthedocs.io",
+      "readthedocs.org"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://docs.readthedocs.io/"
+  },
+  {
+    "name": "Rebrandly",
+    "cname": [
+      "rebrandly.com",
+      "rbndly.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://support.rebrandly.com/"
+  },
+  {
+    "name": "Render",
+    "cname": [
+      "onrender.com"
+    ],
+    "header_fingerprints": [
+      "X-Render-Origin-Server"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://render.com/docs"
+  },
+  {
+    "name": "Replit",
+    "cname": [
+      "replit.dev",
+      "repl.co"
+    ],
+    "fingerprints": [
+      "Site not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://docs.replit.com/"
+  },
+  {
+    "name": "Salesforce",
+    "cname": [
+      "force.com",
+      "salesforce.com"
+    ],
+    "fingerprints": [
+      "The requested URL was not found on this server."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://developer.salesforce.com/"
+  },
+  {
+    "name": "SendGrid",
+    "cname": [
+      "sendgrid.net",
+      "sendgridapp.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://sendgrid.com/docs/ui/account-and-settings/"
+  },
+  {
+    "name": "Shopify",
+    "cname": [
+      "myshopify.com"
+    ],
+    "fingerprints": [
+      "Sorry, this shop is currently unavailable.",
+      "Only one step left!",
+      "To open this page, sign up for a Shopify account"
+    ],
+    "nxdomain": true,
+    "claimable": true,
+    "severity": "critical",
+    "docs": "https://help.shopify.com/en/manual/domains"
+  },
+  {
+    "name": "Shopify Plus",
+    "cname": [
+      "shopifycdn.com"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://help.shopify.com/"
+  },
+  {
+    "name": "Smb Files",
+    "cname": [
+      "smb_files"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://www.smbcrm.com/"
+  },
+  {
+    "name": "Squarespace",
+    "cname": [
+      "squarespace.com",
+      "sqspcdn.com"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://support.squarespace.com/"
+  },
+  {
+    "name": "StackPath",
+    "cname": [
+      "stackpathdns.com",
+      "stackpathcdn.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://www.stackpath.com/docs/"
+  },
+  {
+    "name": "Statically",
+    "cname": [
+      "statically.io"
+    ],
+    "fingerprints": [
+      "Domain is not configured"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://statically.io/docs"
+  },
+  {
+    "name": "Sucuri",
+    "cname": [
+      "sucuri.net",
+      "cloudproxy.net"
+    ],
+    "fingerprints": [
+      "Access Denied",
+      "Sucuri Website Firewall"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://sucuri.net/help/"
+  },
+  {
+    "name": "Surge.sh",
+    "cname": [
+      "surge.sh"
+    ],
+    "fingerprints": [
+      "project not found"
+    ],
+    "nxdomain": true,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://surge.sh/help/getting-started-with-surge"
+  },
+  {
+    "name": "Tally",
+    "cname": [
+      "tally.so"
+    ],
+    "fingerprints": [
+      "Not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://tally.so/help"
+  },
+  {
+    "name": "Tencent COS",
+    "cname": [
+      "myqcloud.com",
+      "tencent-cloud.com"
+    ],
+    "fingerprints": [
+      "NoSuchBucket",
+      "The specified bucket does not exist."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://cloud.tencent.com/document/product/436/7730"
+  },
+  {
+    "name": "Tiiny Host",
+    "cname": [
+      "tiiny.host"
+    ],
+    "fingerprints": [
+      "This site is not configured"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://tiiny.host/"
   }
 ]
