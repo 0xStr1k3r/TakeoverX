@@ -1294,5 +1294,196 @@
     "claimable": true,
     "severity": "low",
     "docs": "https://tiiny.host/"
+  },
+  {
+    "name": "Tumblr",
+    "cname": [
+      "tumblr.com"
+    ],
+    "fingerprints": [
+      "There's nothing here"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://help.tumblr.com/"
+  },
+  {
+    "name": "Typeform",
+    "cname": [
+      "typeform.com"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://www.typeform.com/help/"
+  },
+  {
+    "name": "Val Town",
+    "cname": [
+      "val.town"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://docs.val.town/"
+  },
+  {
+    "name": "Vercel",
+    "cname": [
+      "vercel.app",
+      "now.sh",
+      "vercel-dns.com"
+    ],
+    "fingerprints": [
+      "The page could not be found",
+      "DEPLOYMENT_NOT_FOUND",
+      "404: NOT_FOUND"
+    ],
+    "header_fingerprints": [
+      "X-Vercel-Id"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://vercel.com/docs"
+  },
+  {
+    "name": "Vultr",
+    "cname": [
+      "vultrobjects.com",
+      "vultrcdn.com"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://www.vultr.com/docs/"
+  },
+  {
+    "name": "Webflow",
+    "cname": [
+      "webflow.io"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "info",
+    "docs": "https://help.webflow.com/"
+  },
+  {
+    "name": "Wix",
+    "cname": [
+      "wixsite.com",
+      "wixdns.net"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://support.wix.com/"
+  },
+  {
+    "name": "WordPress.com",
+    "cname": [
+      "wordpress.com",
+      "wp.com"
+    ],
+    "fingerprints": [
+      "Do you want to register",
+      "page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "medium",
+    "docs": "https://wordpress.com/help/"
+  },
+  {
+    "name": "WP Engine",
+    "cname": [
+      "wpengine.com",
+      "wpenginepowered.com"
+    ],
+    "fingerprints": [
+      "The requested URL was not found on this server."
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "high",
+    "docs": "https://wpengine.com/support/"
+  },
+  {
+    "name": "Yandex",
+    "cname": [
+      "yandex.net",
+      "yandex.ru"
+    ],
+    "nxdomain": false,
+    "claimable": false,
+    "severity": "low",
+    "docs": "https://yandex.com/support/"
+  },
+  {
+    "name": "Zapier",
+    "cname": [
+      "zapier.com",
+      "zapierusercontent.com"
+    ],
+    "fingerprints": [
+      "Page not found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://help.zapier.com/"
+  },
+  {
+    "name": "Zeabur",
+    "cname": [
+      "zeabur.app"
+    ],
+    "fingerprints": [
+      "Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://zeabur.com/docs"
+  },
+  {
+    "name": "Zendesk",
+    "cname": [
+      "zendesk.com"
+    ],
+    "fingerprints": [
+      "Help Center Closed"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://support.zendesk.com/"
+  },
+  {
+    "name": "Zoho",
+    "cname": [
+      "zoho.com",
+      "zohostatic.com"
+    ],
+    "fingerprints": [
+      "Page Not Found"
+    ],
+    "nxdomain": false,
+    "claimable": true,
+    "severity": "low",
+    "docs": "https://www.zoho.com/"
   }
 ]
