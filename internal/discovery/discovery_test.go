@@ -16,6 +16,7 @@ import (
 // TestMain shortens the retry backoff so the retry and fallback tests finish
 // quickly without weakening what they assert.
 func TestMain(m *testing.M) {
+	ctRetryBaseBackoff = time.Millisecond
 	os.Exit(m.Run())
 }
 
@@ -90,7 +91,7 @@ func ctServer(t *testing.T, hit *int32, handler func(w http.ResponseWriter, r *h
 		handler(w, r)
 	}))
 	t.Cleanup(srv.Close)
-	return &PassiveSource{Client: srv.Client(), BaseURL: srv.URL}
+	return &PassiveSource{Client: srv.Client(), BaseURL: srv.URL, FallbackURL: srv.URL}
 }
 
 func TestPassiveDiscoverParsesCTLog(t *testing.T) {
@@ -142,10 +143,121 @@ func TestPassiveDiscoverEmptyResponse(t *testing.T) {
 	}
 }
 
+func TestPassiveDiscoverRetriesThenFallsBack(t *testing.T) {
+	var firstHits, secondHits int32
 
+	// The primary source is rate-limited on the first two attempts and answers
+	// on the third, exactly as crt.sh behaves under load.
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&firstHits, 1) < 3 {
+			http.Error(w, "rate limited", http.StatusTooManyRequests)
+			return
+		}
+		_, _ = w.Write([]byte(`[{"common_name":"api.example.com","name_value":"api.example.com"}]`))
+	}))
+	defer primary.Close()
 
+	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&secondHits, 1)
+		http.Error(w, "nope", http.StatusNotFound)
+	}))
+	defer second.Close()
 
+	src := &PassiveSource{Client: primary.Client(), BaseURL: primary.URL, FallbackURL: second.URL}
+	got, err := src.Discover(context.Background(), "example.com")
+	if err != nil {
+		t.Fatalf("a transient 429 must be retried, not fatal: %s", err)
+	}
+	if len(got) != 1 || got[0] != "api.example.com" {
+		t.Fatalf("got %v", got)
+	}
+	if atomic.LoadInt32(&firstHits) < 3 {
+		t.Fatalf("expected retries, got %d attempts", firstHits)
+	}
+	if atomic.LoadInt32(&secondHits) != 0 {
+		t.Fatal("fallback must not be used once the primary succeeds")
+	}
+}
 
+func TestPassiveDiscoverFallsBackWhenPrimaryIsDown(t *testing.T) {
+	var primaryHits, secondHits int32
+
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&primaryHits, 1)
+		http.Error(w, "bad gateway", http.StatusBadGateway)
+	}))
+	defer primary.Close()
+
+	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&secondHits, 1)
+		_, _ = w.Write([]byte(`[{"dns_names":["shop.example.com","www.example.com"]}]`))
+	}))
+	defer second.Close()
+
+	src := &PassiveSource{Client: primary.Client(), BaseURL: primary.URL, FallbackURL: second.URL}
+	got, err := src.Discover(context.Background(), "example.com")
+	if err != nil {
+		t.Fatalf("an outage on the primary source must fall through: %s", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %v", got)
+	}
+	if got[0] != "shop.example.com" {
+		t.Fatalf("results not sorted: %v", got)
+	}
+	if atomic.LoadInt32(&secondHits) == 0 {
+		t.Fatal("fallback source was never queried")
+	}
+}
+
+func TestPassiveDiscoverAllSourcesDown(t *testing.T) {
+	var hits int32
+	src := ctServer(t, &hits, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "bad gateway", http.StatusBadGateway)
+	})
+
+	_, err := src.Discover(context.Background(), "example.com")
+	if err == nil {
+		t.Fatal("when every source fails the error must say so")
+	}
+	for _, want := range []string{"crt.sh", "certspotter", "502"} {
+		if !contains(err.Error(), want) {
+			t.Errorf("error should mention %q: %s", want, err)
+		}
+	}
+}
+
+func TestPassiveDiscoverDoesNotRetryClientErrors(t *testing.T) {
+	var hits int32
+	src := ctServer(t, &hits, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "bad query", http.StatusBadRequest)
+	})
+
+	_, err := src.Discover(context.Background(), "example.com")
+	if err == nil {
+		t.Fatal("HTTP 400 must surface as an error")
+	}
+	// One attempt per source; a malformed query cannot be fixed by retrying.
+	if got := atomic.LoadInt32(&hits); got != 2 {
+		t.Fatalf("expected 2 attempts (one per source), got %d", got)
+	}
+}
+
+func TestPassiveDiscoverIgnoresWildcardOnlyEntries(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"common_name":"*.example.com","name_value":"*.example.com"}]`))
+	}))
+	defer srv.Close()
+
+	src := &PassiveSource{Client: srv.Client(), BaseURL: srv.URL, FallbackURL: srv.URL}
+	got, err := src.Discover(context.Background(), "example.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("a wildcard certificate names no specific host: %v", got)
+	}
+}
 
 func TestPassiveDiscoverRejectsBadBase(t *testing.T) {
 	src := &PassiveSource{}
