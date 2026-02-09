@@ -156,6 +156,34 @@ func TestWriteTableShowsOnlyFindings(t *testing.T) {
 	}
 }
 
+func TestWriteSARIFIsValid(t *testing.T) {
+	var buf bytes.Buffer
+	if err := Write(&buf, testReport(), FormatSARIF); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &doc); err != nil {
+		t.Fatalf("SARIF is not valid JSON: %s", err)
+	}
+	if doc["version"] != "2.1.0" {
+		t.Fatalf("SARIF version: %v", doc["version"])
+	}
+	runs := doc["runs"].([]any)
+	if len(runs) != 1 {
+		t.Fatalf("runs: %d", len(runs))
+	}
+	results := runs[0].(map[string]any)["results"].([]any)
+	if len(results) != 4 {
+		t.Fatalf("every result should be present, got %d", len(results))
+	}
+	levels := map[string]int{}
+	for _, r := range results {
+		levels[r.(map[string]any)["level"].(string)]++
+	}
+	if levels["error"] == 0 {
+		t.Fatalf("a HIGH confidence finding must map to the error level: %v", levels)
+	}
+}
 
 func TestWriteHTMLIsSelfContained(t *testing.T) {
 	var buf bytes.Buffer
@@ -188,7 +216,7 @@ func TestWriteRejectsUnknownFormat(t *testing.T) {
 }
 
 func TestWriteAllFormatsSucceed(t *testing.T) {
-	for _, f := range []string{FormatTable, FormatJSON, FormatCSV, FormatHTML} {
+	for _, f := range Formats() {
 		var buf bytes.Buffer
 		if err := Write(&buf, testReport(), f); err != nil {
 			t.Errorf("format %s failed: %s", f, err)
@@ -267,6 +295,23 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
+func TestSeverityLevel(t *testing.T) {
+	cases := []struct {
+		r    models.ScanResult
+		want string
+	}{
+		{models.ScanResult{Status: "VULNERABLE", Confidence: "HIGH"}, "error"},
+		{models.ScanResult{Status: "VULNERABLE", Confidence: "MEDIUM"}, "warning"},
+		{models.ScanResult{Status: "VULNERABLE", Confidence: "MEDIUM", Severity: "critical"}, "error"},
+		{models.ScanResult{Status: "SAFE"}, "note"},
+		{models.ScanResult{Status: "UNKNOWN"}, "note"},
+	}
+	for _, c := range cases {
+		if got := severityLevel(c.r); got != c.want {
+			t.Errorf("severityLevel(%+v) = %s, want %s", c.r, got, c.want)
+		}
+	}
+}
 
 func TestFindingsOnlySerialisesAsEmptyArray(t *testing.T) {
 	// nil slices marshal to JSON null. Consumers iterating results[] must not

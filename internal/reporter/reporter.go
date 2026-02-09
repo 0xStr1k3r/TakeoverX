@@ -110,11 +110,12 @@ const (
 	FormatJSON  = "json"
 	FormatCSV   = "csv"
 	FormatHTML  = "html"
+	FormatSARIF = "sarif"
 )
 
 // Formats lists valid -o values.
 func Formats() []string {
-	return []string{FormatTable, FormatJSON, FormatCSV, FormatHTML}
+	return []string{FormatTable, FormatJSON, FormatCSV, FormatHTML, FormatSARIF}
 }
 
 // Write renders the report in the requested format. HTML and SARIF are written
@@ -127,6 +128,8 @@ func Write(w io.Writer, r *Report, format string) error {
 		return writeCSV(w, r)
 	case FormatHTML:
 		return WriteHTMLTo(w, r)
+	case FormatSARIF:
+		return writeSARIF(w, r)
 	case FormatTable, "":
 		return WriteTable(w, r)
 	default:
@@ -209,6 +212,106 @@ func truncate(s string, n int) string {
 		return s[:n]
 	}
 	return s[:n-1] + "…"
+}
+
+// ── SARIF ────────────────────────────────────────────────────────────────────
+
+// sarifDoc is the minimal SARIF 2.1.0 shape that CI scanners accept.
+type sarifDoc struct {
+	Schema  string     `json:"$schema"`
+	Version string     `json:"version"`
+	Runs    []sarifRun `json:"runs"`
+}
+
+type sarifRun struct {
+	Tool    sarifTool     `json:"tool"`
+	Results []sarifResult `json:"results"`
+}
+
+type sarifTool struct {
+	Driver sarifDriver `json:"driver"`
+}
+
+type sarifDriver struct {
+	Name           string      `json:"name"`
+	InformationURI string      `json:"informationUri"`
+	Version        string      `json:"version,omitempty"`
+	Rules          []sarifRule `json:"rules"`
+}
+
+type sarifRule struct {
+	ID               string       `json:"id"`
+	Name             string       `json:"name"`
+	ShortDescription sarifMessage `json:"shortDescription"`
+}
+
+type sarifResult struct {
+	RuleID    string          `json:"ruleId"`
+	Level     string          `json:"level"`
+	Message   sarifMessage    `json:"message"`
+	Locations []sarifLocation `json:"locations"`
+}
+
+type sarifMessage struct {
+	Text string `json:"text"`
+}
+
+type sarifLocation struct {
+	PhysicalLocation struct {
+		ArtifactLocation struct {
+			URI string `json:"uri"`
+		} `json:"artifactLocation"`
+	} `json:"physicalLocation"`
+}
+
+// severityLevel maps our confidence grades onto SARIF levels. SARIF has no
+// HIGH/MEDIUM, so HIGH maps to "error" — the only level most CI gates on.
+func severityLevel(r models.ScanResult) string {
+	if !r.Vulnerable() {
+		return "note"
+	}
+	if r.Confidence == string(models.ConfidenceHigh) || r.Severity == "critical" {
+		return "error"
+	}
+	return "warning"
+}
+
+func writeSARIF(w io.Writer, r *Report) error {
+	doc := sarifDoc{
+		Schema:  "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+		Version: "2.1.0",
+	}
+	run := sarifRun{}
+	run.Tool.Driver.Name = "TakeoverX"
+	run.Tool.Driver.InformationURI = "https://github.com/0xStr1k3r/TakeoverX"
+
+	seen := map[string]bool{}
+	for _, s := range r.Results {
+		if s.Status == "" {
+			continue
+		}
+		id := "takeover/" + strings.ReplaceAll(strings.ToLower(strings.ReplaceAll(s.Service, " ", "-")), "/", "-")
+		if !seen[id] {
+			seen[id] = true
+			rule := sarifRule{ID: id, Name: s.Service}
+			rule.ShortDescription.Text = "Subdomain takeover risk on " + s.Service
+			run.Tool.Driver.Rules = append(run.Tool.Driver.Rules, rule)
+		}
+		res := sarifResult{RuleID: id, Level: severityLevel(s)}
+		res.Message.Text = strings.TrimSpace(s.Reason + " — " + s.Remediation)
+		loc := sarifLocation{}
+		loc.PhysicalLocation.ArtifactLocation.URI = s.Subdomain
+		res.Locations = []sarifLocation{loc}
+		run.Results = append(run.Results, res)
+	}
+	doc.Runs = []sarifRun{run}
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(doc); err != nil {
+		return fmt.Errorf("encoding SARIF report: %w", err)
+	}
+	return nil
 }
 
 // SaveFile writes a report document to disk, creating parent directories.
