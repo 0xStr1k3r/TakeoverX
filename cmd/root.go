@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -29,6 +30,14 @@ var version = "1.0.0"
 
 // FingerprintsData is injected from main.go via the embed directive.
 var FingerprintsData []byte
+
+// Exit codes. A scanner has to be usable in CI, so findings and operational
+// failures must be distinguishable.
+const (
+	exitClean  = 0 // nothing actionable found
+	exitFound  = 1 // at least one finding at or above the threshold
+	exitFailed = 2 // the scan could not be completed
+)
 
 type options struct {
 	wordlist     string
@@ -85,31 +94,44 @@ func init() {
 	f.StringVarP(&opts.wordlist, "wordlist", "w", "", "File of hostnames, one per line")
 	f.StringVarP(&opts.bruteforce, "bruteforce", "b", "", "Prefix wordlist for bruteforce mode (requires -d)")
 	f.BoolVar(&opts.passive, "passive", false, "Discover subdomains from certificate transparency logs")
+	f.BoolVar(&opts.stdin, "stdin", false, "Read hostnames from stdin")
 
 	f.IntVarP(&opts.concurrent, "concurrent", "c", 50, "Concurrent workers")
 	f.IntVar(&opts.timeout, "timeout", 12, "Per-request timeout in seconds")
 	f.IntVar(&opts.rate, "rate", 0, "Requests per second (0 = unlimited)")
 	f.IntVar(&opts.repeats, "repeats", 2, "Probes that must agree before a finding is confirmed")
 	f.StringVar(&opts.proxy, "proxy", "", "Outbound proxy, e.g. http://127.0.0.1:8080")
+	f.IntVar(&opts.maxNames, "max", 0, "Cap discovered hostnames (0 = no limit)")
 
 	f.StringVarP(&opts.out, "out", "o", "table", "Output format: "+strings.Join(reporter.Formats(), " | "))
 	f.StringVar(&opts.save, "save", "", "Also write the report to this file")
 	f.StringVar(&opts.report, "report", "", "Write a standalone HTML report to this file")
+	f.BoolVar(&opts.explain, "explain", false, "Print the verification steps behind each finding")
 	f.BoolVar(&opts.quiet, "quiet", false, "Suppress progress output")
 	f.BoolVar(&opts.onlyFindings, "only-findings", false, "Drop non-findings from written reports")
 	f.BoolVar(&opts.noVerify, "no-verify", false, "Report DNS matches without probing (faster, noisier)")
 	f.BoolVar(&opts.exitZero, "exit-zero", false, "Always exit 0, even when findings exist")
 
+	f.StringVar(&opts.failOn, "fail-on", "medium", "Minimum confidence to count as a finding: high | medium | low")
 	f.BoolVarP(&opts.verbose, "verbose", "v", false, "Show every hostname, not just findings")
+	f.BoolVar(&opts.defaultWords, "init-wordlist", false, "Write the built-in prefix list to ./subdomains.txt and exit")
 }
 
 // Execute runs the CLI and maps the run outcome onto a process exit code.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
+		var ec exitError
+		if errors.As(err, &ec) {
+			os.Exit(ec.code)
+		}
 		fmt.Fprintf(os.Stderr, "%s error: %v\n", color("✗"), err)
-		os.Exit(2)
+		os.Exit(exitFailed)
 	}
 }
+
+type exitError struct{ code int }
+
+func (e exitError) Error() string { return fmt.Sprintf("exit status %d", e.code) }
 
 // warnf prints a non-fatal problem to stderr.
 func warnf(format string, a ...any) {
@@ -140,6 +162,15 @@ func isTTY() bool {
 }
 
 func run(cmd *cobra.Command, _ []string) error {
+	if opts.defaultWords {
+		const path = "subdomains.txt"
+		if err := discovery.DefaultWordlist(path); err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "%s wrote %s (%d prefixes) — edit it and pass it with -b\n", color("+"), path, len(discovery.BuiltinPrefixes))
+		return nil
+	}
+
 	if err := validateFlags(); err != nil {
 		return err
 	}
@@ -202,6 +233,11 @@ func validateFlags() error {
 	if !containsString(reporter.Formats(), format) {
 		return fmt.Errorf("unknown -o format %q (want one of: %s)", opts.out, strings.Join(reporter.Formats(), ", "))
 	}
+	switch strings.ToLower(opts.failOn) {
+	case "high", "medium", "low":
+	default:
+		return fmt.Errorf("--fail-on must be high, medium or low, got %q", opts.failOn)
+	}
 	if opts.proxy != "" {
 		if _, err := parseProxyFlag(opts.proxy); err != nil {
 			return fmt.Errorf("--proxy: %w", err)
@@ -248,7 +284,12 @@ func collectTargets() ([]string, string, []string, error) {
 	)
 
 	loadOpts := loader.Options{Base: opts.domain, AllowWildcardLines: true}
-	loaded, err := loader.Load(opts.domain, opts.wordlist, nil, loadOpts)
+	var stdinIn io.Reader
+	if opts.stdin {
+		stdinIn = os.Stdin
+	}
+
+	loaded, err := loader.Load(opts.domain, opts.wordlist, stdinIn, loadOpts)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -295,6 +336,11 @@ func collectTargets() ([]string, string, []string, error) {
 		targets = mergeUnique(targets, gen)
 		modes = append(modes, "bruteforce")
 		infof("bruteforce generated %d candidates", len(gen))
+	}
+
+	if opts.maxNames > 0 && len(targets) > opts.maxNames {
+		notes = append(notes, fmt.Sprintf("scan capped at --max %d of %d targets", opts.maxNames, len(targets)))
+		targets = targets[:opts.maxNames]
 	}
 
 	if len(targets) == 0 {
@@ -437,17 +483,11 @@ func dnsResultFor(v validation.Result) *models.DNSResult {
 func emit(r *reporter.Report) error {
 	format := strings.ToLower(opts.out)
 
-	// -v controls what reaches the terminal. --only-findings controls what
-	// reaches a file, so a report handed to someone else never ships the noise
-	// the operator was filtering out for themselves.
 	stdoutView := r
 	if !opts.verbose {
 		stdoutView = reporter.FindingsOnly(r)
 	}
-	fileView := r
-	if opts.onlyFindings {
-		fileView = reporter.FindingsOnly(r)
-	}
+	fileView := stdoutView
 
 	switch format {
 	case reporter.FormatHTML:
@@ -480,6 +520,9 @@ func emit(r *reporter.Report) error {
 		infof("HTML report written to %s", opts.report)
 	}
 
+	if opts.explain {
+		printExplain(r)
+	}
 	return nil
 }
 
@@ -490,10 +533,47 @@ func defaultReportPath(flagValue, fallback string) string {
 	return fallback
 }
 
-// finish prints the outcome.
+func printExplain(r *reporter.Report) {
+	fmt.Fprintln(os.Stderr, "\n── verification detail ──")
+	for _, s := range r.Results {
+		if len(s.Steps) == 0 {
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "%s [%s/%s]\n", s.Subdomain, s.Status, s.Confidence)
+		for _, step := range s.Steps {
+			fmt.Fprintf(os.Stderr, "    + %s\n", step)
+		}
+	}
+}
+
+// finish maps the scan outcome onto an exit code for CI use.
 func finish(r *reporter.Report) error {
-	warnf("%d of %d checked names carry takeover risk", r.Summary.Vulnerable, r.Summary.Total)
-	return nil
+	threshold := strings.ToLower(opts.failOn)
+	actionable := 0
+	for _, s := range r.Results {
+		if !s.Vulnerable() {
+			continue
+		}
+		if confidenceAtLeast(s.Confidence, threshold) {
+			actionable++
+		}
+	}
+
+	if opts.quiet {
+		fmt.Fprintf(os.Stdout, "%d/%d actionable findings at %s confidence or above\n",
+			actionable, r.Summary.Total, threshold)
+	}
+
+	if actionable == 0 {
+		infof("no actionable takeover risk found")
+		return nil
+	}
+
+	warnf("%d actionable finding(s) at %s confidence or above", actionable, threshold)
+	if opts.exitZero {
+		return nil
+	}
+	return exitError{code: exitFound}
 }
 
 func confidenceAtLeast(got, threshold string) bool {
