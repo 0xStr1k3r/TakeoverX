@@ -483,11 +483,17 @@ func dnsResultFor(v validation.Result) *models.DNSResult {
 func emit(r *reporter.Report) error {
 	format := strings.ToLower(opts.out)
 
+	// -v controls what reaches the terminal. --only-findings controls what
+	// reaches a file, so a report handed to someone else never ships the noise
+	// the operator was filtering out for themselves.
 	stdoutView := r
 	if !opts.verbose {
 		stdoutView = reporter.FindingsOnly(r)
 	}
-	fileView := stdoutView
+	fileView := r
+	if opts.onlyFindings {
+		fileView = reporter.FindingsOnly(r)
+	}
 
 	switch format {
 	case reporter.FormatHTML:
