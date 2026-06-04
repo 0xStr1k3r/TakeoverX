@@ -1,319 +1,225 @@
-<div align="center">
+<p align="center">
+  <img src="docs/banner.svg" alt="TakeoverX" width="100%">
+</p>
+
+<p align="center">
+  <a href="#install"><img src="https://img.shields.io/badge/install-one%20command-5aa9ff?style=flat-square" alt="Install"></a>
+  <a href="#usage"><img src="https://img.shields.io/badge/usage-3%20commands-c07cff?style=flat-square" alt="Usage"></a>
+  <img src="https://img.shields.io/badge/go-1.24%2B-00ADD8?style=flat-square&logo=go" alt="Go 1.22+">
+  <img src="https://img.shields.io/badge/providers-109-3ddc97?style=flat-square" alt="109 providers">
+  <img src="https://img.shields.io/badge/dependencies-1-c07cff?style=flat-square" alt="One dependency">
+  <img src="https://img.shields.io/badge/license-MIT-a78bfa?style=flat-square" alt="MIT">
+</p>
+
+<p align="center">
+  Finds the DNS records you forgot about — before someone else claims them.
+</p>
+
+---
+
+A subdomain points at a cloud service that has stopped claiming it. Anyone can
+register the matching resource and start serving content under your domain —
+stealing cookies, caching phishing pages, or quietly taking over your mail.
+
+Most scanners stop at "this CNAME points at a provider" and call it a takeover.
+It usually isn't. TakeoverX only reports a finding when it has **positive
+evidence that the resource is unclaimed**.
 
 ```
-  ████████╗ █████╗ ██╗  ██╗███████╗ ██████╗ ██╗   ██╗███████╗██████╗ ██╗  ██╗
-  ╚══██╔══╝██╔══██╗██║ ██╔╝██╔════╝██╔═══██╗██║   ██║██╔════╝██╔══██╗╚██╗██╔╝
-     ██║   ███████║█████╔╝ █████╗  ██║   ██║██║   ██║█████╗  ██████╔╝ ╚███╔╝
-     ██║   ██╔══██║██╔═██╗ ██╔══╝  ██║   ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗ ██╔██╗
-     ██║   ██║  ██║██║  ██╗███████╗╚██████╔╝ ╚████╔╝ ███████╗██║  ██║██╔╝ ██╗
-     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
+$ takeoverx -d example.com --passive
+[*] 412 targets | 50 workers | 109 providers
+[!] cdn.example.com  AWS S3  (HIGH confidence)
+      AWS S3 reports the resource is unclaimed ("NoSuchBucket")
+
+412 scanned | 1 vulnerable (1 high, 0 medium) | 409 safe | 2 unknown | 8.4s
 ```
 
-**High-performance subdomain takeover scanner written in Go**
-
-![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-![Platforms](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey?style=flat-square)
-
-</div>
-
 ---
 
-> ⚠️ **Legal Disclaimer**
-> TakeoverX is intended for **authorized security testing, bug bounty hunting, and educational purposes only**.
-> You must have **explicit written permission** from the asset owner before scanning any domain.
-> Unauthorized use against systems you do not own or have permission to test is **illegal** and may result in criminal prosecution.
-> The authors take **no responsibility** for misuse of this tool.
+## Install
 
----
+**One command** — picks up your architecture, no toolchain needed:
 
-## Features
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xStr1k3r/TakeoverX/main/install.sh | bash
+```
 
-- 🎯 **51+ cloud service fingerprints** — AWS S3, GitHub Pages, Heroku, Netlify, Vercel, Azure, Firebase, Cloudflare, Render, and more
-- ⚡ **High-performance concurrent scanning** — configurable worker pool (`-c`)
-- 🔎 **Three discovery modes** — single domain, wordlist scan, or bruteforce generation
-- 🔗 **Multi-level CNAME chain analysis** — detects indirect takeovers across hops
-- 🛡️ **False-positive prevention** — retry verification layer confirms fingerprints consistently
-- 📡 **Header fingerprinting** — secondary signal via `Server`, `X-Powered-By`, and other headers
-- ⏱️ **Rate limiting** — configurable requests-per-second (`--rate`)
-- 📊 **Multiple output formats** — table (default), JSON, CSV
-- 💾 **Save results** — `-s results.json` saves VULNERABLE findings to a JSON file
-- 📄 **Professional HTML report** — dark-theme pentest report with summary cards
-- 🛑 **Graceful shutdown** — CTRL+C drains workers cleanly
+```bash
+./install.sh --check       # verify an existing install
+./install.sh --force       # reinstall
+./install.sh --uninstall   # remove
+./install.sh --dir ~/.local/bin
+```
 
----
+**Or with Go:**
 
-## Installation
+```bash
+go install github.com/0xStr1k3r/TakeoverX@latest
+```
 
-### Quick Install (Recommended)
+**Or from source:**
 
 ```bash
 git clone https://github.com/0xStr1k3r/TakeoverX.git
-cd TakeoverX
-chmod +x install.sh
-./install.sh
+cd TakeoverX && make build
 ```
 
-The installer automatically:
-- Detects your OS (Debian/Ubuntu, Arch, RHEL/Fedora, openSUSE, Alpine, macOS)
-- Installs Go if not present or too old (minimum Go 1.21)
-- Builds the binary with optimizations (`-ldflags="-s -w"`)
-- Installs to `/usr/local/bin/takeoverx`
-
-### Manual Build
-
-```bash
-git clone https://github.com/0xStr1k3r/TakeoverX.git
-cd TakeoverX
-go build -ldflags="-s -w" -trimpath -o takeoverx .
-sudo mv takeoverx /usr/local/bin/
-```
-
-### Requirements
-
-| Requirement | Version  |
-|-------------|----------|
-| Go          | ≥ 1.21   |
-| OS          | Linux / macOS |
+One direct dependency (Cobra). Pure Go — it cross-compiles with nothing but the
+toolchain, and there is no container runtime anywhere in the design.
 
 ---
 
-## Quick Start
+## Usage
+
+Three commands cover most work.
 
 ```bash
-# Scan a single subdomain
-takeoverx -d sub.example.com
+# Everything ever issued under a domain, no wordlist needed
+takeoverx -d example.com --passive
 
-# Scan a list of subdomains (use your own wordlist or one from SecLists)
-takeoverx -w subdomains.txt
-
-# Bruteforce: generate & scan subdomain candidates for a domain
-takeoverx -d example.com -b wordlist.txt
-
-# High-throughput scan
-takeoverx -d example.com -b wordlist.txt -c 200
-
-# Save vulnerable results to JSON
-takeoverx -d example.com -b wordlist.txt -s results.json
-
-# Generate HTML report
-takeoverx -w subs.txt --report report.html
-
-# Show ALL results including SAFE/UNKNOWN
-takeoverx -w subs.txt -v
-
-# Output as JSON to stdout
-takeoverx -w subs.txt -o json
-
-# Skip retry verification (faster, more false positives)
-takeoverx -w subs.txt --no-verify
-```
-
----
-
-## CLI Flags
-
-| Flag                | Short | Default       | Description                                      |
-|---------------------|-------|---------------|--------------------------------------------------|
-| `--wordlist`        | `-w`  | —             | Path to subdomain list (one per line)            |
-| `--domain`          | `-d`  | —             | Single subdomain, or base domain for bruteforce  |
-| `--bruteforce`      | `-b`  | —             | Bruteforce prefix wordlist (requires `-d`)       |
-| `--concurrent`      | `-c`  | `50`          | Number of concurrent workers                     |
-| `--out`             | `-o`  | `table`       | Output format: `table` \| `json` \| `csv`        |
-| `--save`            | `-s`  | —             | Save VULNERABLE results as JSON to file          |
-| `--report`          | —     | —             | Save full HTML report to file                    |
-| `--timeout`         | `-t`  | `12`          | HTTP probe timeout in seconds                    |
-| `--rate`            | —     | `0` (unlimited) | Max HTTP requests per second                   |
-| `--verbose`         | `-v`  | `false`       | Show all results (SAFE + UNKNOWN + VULNERABLE)   |
-| `--no-verify`       | —     | `false`       | Skip retry verification (faster, less accurate)  |
-| `--version`         | —     | —             | Print version and exit                           |
-| `--help`            | `-h`  | —             | Show help                                        |
-
----
-
-## Wordlists
-
-TakeoverX does **not** bundle a wordlist — bring your own or use one from [SecLists](https://github.com/danielmiessler/SecLists):
-
-```bash
-# Install SecLists (Debian/Ubuntu)
-sudo apt install seclists
-
-# Use a SecLists DNS wordlist
-takeoverx -d example.com -b /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt
-
-# Or use a small custom wordlist
-takeoverx -d example.com -b ~/my-wordlist.txt
-```
-
----
-
-## Discovery Modes
-
-### 1. Recon Mode
-Scan a pre-built list of subdomains — ideal when you already have output from tools like [Subfinder](https://github.com/projectdiscovery/subfinder), [Amass](https://github.com/owasp-amass/amass), or [assetfinder](https://github.com/tomnomnom/assetfinder).
-
-```bash
-subfinder -d example.com -silent | tee subs.txt
-takeoverx -w subs.txt -c 100 --report report.html
-```
-
-### 2. Bruteforce Mode
-Generate subdomain candidates by prepending a wordlist to a base domain, then scan them all.
-
-```bash
-takeoverx -d example.com -b /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt
-```
-
-Generates: `www.example.com`, `mail.example.com`, `api.example.com`, ...
-
-### 3. Single Domain
-Quick check of one subdomain.
-
-```bash
+# One specific hostname
 takeoverx -d cdn.example.com
+
+# A list you already have
+takeoverx -w hosts.txt
+cat hosts.txt | takeoverx --stdin
 ```
+
+Generate candidates from a prefix list:
+
+```bash
+takeoverx --init-wordlist                      # writes ./subdomains.txt
+takeoverx -d example.com -b subdomains.txt
+```
+
+Combine sources, cap the work, slow down politely:
+
+```bash
+takeoverx -d example.com --passive -b subdomains.txt --max 500 --rate 10
+```
+
+### Options
+
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `-d, --domain` | — | Base domain or single hostname |
+| `-w, --wordlist` | — | File of hostnames, one per line |
+| `-b, --bruteforce` | — | Prefix wordlist (needs `-d`) |
+| `--passive` | `false` | Discover hostnames from certificate transparency |
+| `--stdin` | `false` | Read hostnames from stdin |
+| `-c, --concurrent` | `50` | Concurrent workers |
+| `--rate` | `0` | Requests per second (`0` = unlimited) |
+| `--timeout` | `12` | Per-request timeout, seconds |
+| `--repeats` | `2` | Probes that must agree before confirming |
+| `--proxy` | — | Outbound proxy, e.g. `http://127.0.0.1:8080` |
+| `--max` | `0` | Cap discovered hostnames |
+| `--no-verify` | `false` | Report DNS matches without probing (faster, noisier) |
+| `-o, --out` | `table` | `table` `json` `csv` `html` `sarif` |
+| `--save` | — | Also write the report to a file |
+| `--report` | — | Write a standalone HTML report |
+| `-v, --verbose` | `false` | Show every hostname, not just findings |
+| `--explain` | `false` | Show the verification steps behind each result |
+| `--only-findings` | `false` | Drop non-findings from written reports |
+| `--fail-on` | `medium` | Minimum confidence to count as a finding |
+| `--exit-zero` | `false` | Always exit 0 |
 
 ---
 
-## Detection Pipeline
+## Why findings carry a confidence
+
+A CNAME pointing at a cloud provider is the normal, correct state of a working
+deployment. Two things that look like evidence are not:
+
+- **The DNS pointing at a provider.** That is what a healthy site looks like.
+- **A provider signature in a response header.** `Server: cloudfront` is on
+  every healthy CloudFront site in the world. It identifies the provider in the
+  path, not the state of the resource. AWS requires a matching certificate
+  before it will attach an alternate domain name to a distribution, so a dangling
+  CloudFront record is not a takeover on its own.
+
+So the only routes to a finding are the provider's own *"this is not yours"*
+response, or a target that has stopped existing for a provider whose takeover
+works that way.
+
+| Result | Meaning |
+| --- | --- |
+| `VULNERABLE` `HIGH` | The provider itself says the resource is unclaimed |
+| `UNKNOWN` | Signals conflict, or we could not prove it either way |
+| `SAFE` | The resource is claimed, or the provider has no claim path |
+
+Two checks do most of the work:
+
+- **Wildcard DNS veto.** A zone that answers for a randomly generated name
+  makes every hostname "resolve", which destroys the evidence. Findings in such
+  a zone are reported as inconclusive rather than guessed at.
+- **Repeat confirmation.** Every match must reproduce on an independent probe. A
+  one-off CDN or network artefact cannot become a finding.
+
+Zones that publish wildcard DNS — `*.github.io`, `*.twilio.com`,
+`*.githubusercontent.com` among them — are correctly inconclusive rather than
+false positives.
+
+Ask for the reasoning on any run:
+
+```bash
+takeoverx -d example.com --passive --explain
+```
 
 ```
-  Input (wordlist / -d / bruteforce)
-              │
-              ▼
-     DNS Resolver Pool
-    (CNAME chain analysis)
-              │
-              ▼
-   Cloud Provider Detector
-   (CNAME + chain matching)
-              │
-              ▼
-      HTTP Probe Pool
-   (HTTPS → HTTP fallback)
-              │
-              ▼
-   Fingerprint Matcher
-   (body + header signals)
-              │
-              ▼
-   Validation Engine
-   (retry confirmation ×2)
-              │
-              ▼
-   Result Aggregator
-   (table / JSON / CSV / HTML)
+cdn.example.com [VULNERABLE/HIGH]
+    + provider identified from DNS
+    + zone has no wildcard DNS
+    + provider fingerprint in response body
+    + fingerprint stable across repeated probes
+    + DNS answer stable on re-resolution
 ```
-
-1. **DNS resolution** — Resolves full CNAME chain (up to 10 hops). Detects NXDOMAIN.
-2. **Service detection** — Matches any link in the CNAME chain against 51 service patterns.
-3. **HTTP probe** — Sends HTTPS (with HTTP fallback) and captures status, body, headers.
-4. **Fingerprint matching** — Checks response body and key headers against known error signatures.
-5. **Validation** — Retries the probe 2× to confirm the fingerprint is consistent. Skip with `--no-verify`.
 
 ---
 
 ## Output
 
-### Default (table)
-```
-SUBDOMAIN              SERVICE   STATUS       CNAME                              REASON
-dev.example.com        AWS S3    VULNERABLE   dev.example.com.s3.amazonaws.com   Fingerprint matched (body)
-api.example.com        AWS S3    VULNERABLE   api-bucket.s3.amazonaws.com        Fingerprint matched (body)
-```
+| Format | Use it for |
+| --- | --- |
+| `table` | Terminal |
+| `json` | Piping into your own tooling |
+| `csv` | Spreadsheet or triage sheet |
+| `html` | Sharing with someone who won't use a terminal |
+| `sarif` | GitHub code scanning and other CI |
 
-### JSON (`-o json`)
-```json
-[
-  {
-    "subdomain": "dev.example.com",
-    "cname": "dev.example.com.s3.amazonaws.com",
-    "cname_chain": "dev.example.com.s3.amazonaws.com → s3-w.us-east-1.amazonaws.com",
-    "service": "AWS S3",
-    "status": "VULNERABLE",
-    "reason": "Fingerprint matched (body)"
-  }
-]
-```
-
-### Save to file (`-s results.json`)
-Saves only VULNERABLE results as JSON — useful for reporting or piping into other tools.
-
-### HTML Report (`--report report.html`)
-Generates a dark-theme pentest report with summary cards, full results table, and color-coded status badges.
-
----
-
-## Integrate with Recon Pipelines
+The HTML report is one self-contained file — no external assets — so it still
+renders offline, months later, on a machine you don't control.
 
 ```bash
-# Subfinder → takeoverx → save vulnerable
-subfinder -d example.com -silent | tee subs.txt
-takeoverx -w subs.txt -s vulns.json 2>/dev/null
-
-# Pipe JSON output through jq
-takeoverx -w subs.txt -o json 2>/dev/null | jq '.[].subdomain'
-
-# CI/CD: exit non-zero if any vulnerabilities found
-takeoverx -w subs.txt -o json 2>/dev/null | python3 -c "
-import sys, json; data = json.load(sys.stdin)
-sys.exit(1 if data else 0)
-"
+takeoverx -d example.com --passive --report takeover.html
 ```
 
 ---
 
-## Supported Services (51)
+## CI
 
-| Category      | Services                                                                 |
-|---------------|--------------------------------------------------------------------------|
-| AWS           | S3, CloudFront, Elastic Beanstalk                                        |
-| Microsoft     | Azure Web Apps, Azure Storage, Azure CDN                                 |
-| Google        | Firebase Hosting, Google Cloud Storage                                   |
-| Code Hosting  | GitHub Pages, GitLab Pages, Bitbucket                                    |
-| PaaS          | Heroku, Render, Railway, Fly.io                                          |
-| CDN / Edge    | Fastly, Cloudflare Pages                                                 |
-| CMS / Blog    | WordPress, Ghost, Tumblr, Squarespace, Cargo, Strikingly                 |
-| E-commerce    | Shopify, Bigcartel                                                       |
-| Marketing     | Netlify, Vercel, Unbounce, Instapage, Campaign Monitor, Wishpond         |
-| Support       | Zendesk, Freshdesk, Intercom, Helpscout, Helpjuice, Desk.com, Teamwork   |
-| Dev Tools     | Readme.io, JetBrains YouTrack, UserVoice, Canny                          |
-| Monitoring    | Statuspage, Pingdom                                                      |
-| Other         | Surge, Pantheon, Acquia, Aftership, Anima, Brightcove, Simplebooklet, Agile CRM |
+Exit codes are split so a pipeline can tell *no risk* from *the tool broke*:
 
----
+| Code | Meaning |
+| --- | --- |
+| `0` | Nothing actionable found |
+| `1` | Findings at or above `--fail-on` |
+| `2` | The scan could not run |
 
-## Project Structure
-
-```
-TakeoverX/
-├── main.go                         # Entry point (embeds fingerprints.json)
-├── cmd/
-│   └── root.go                     # CLI flags, pipeline orchestration
-├── internal/
-│   ├── models/models.go            # Core data types
-│   ├── loader/loader.go            # Wordlist loader + dedup
-│   ├── discovery/bruteforce.go     # Subdomain generator for bruteforce mode
-│   ├── dns/resolver.go             # CNAME chain resolver with caching
-│   ├── services/detector.go        # Cloud provider fingerprint matching
-│   ├── httpclient/probe.go         # HTTP probe + rate limiter
-│   ├── matcher/matcher.go          # Body + header fingerprint matching
-│   ├── validation/verifier.go      # Retry verification (false-positive prevention)
-│   └── reporter/reporter.go        # table / JSON / CSV / HTML output
-├── fingerprints/
-│   └── services.json               # 51-service fingerprint database (embedded in binary)
-├── install.sh                      # Cross-platform installer
-└── LICENSE
+```yaml
+- name: Check for dangling DNS
+  run: |
+    takeoverx -d example.com --passive \
+      --out sarif --save takeoverx.sarif \
+      --fail-on high
 ```
 
----
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
+Findings become SARIF results and show up in GitHub code scanning.
 
 ---
 
-*Use only on systems and domains you own or have **explicit written authorization** to test.*
+## Legal
 
+TakeoverX is for authorised security testing, bug bounty work, and education.
+You need **explicit written permission** from the asset owner before scanning
+anything. Scanning systems you do not own or have permission to test is illegal
+in most jurisdictions. The authors accept no responsibility for misuse.
