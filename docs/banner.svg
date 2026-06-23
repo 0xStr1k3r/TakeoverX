@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 560" width="1280" height="560" role="img" aria-label="TakeoverX — subdomain takeover scanner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1017"/>
+      <stop offset="55%" stop-color="#121724"/>
+      <stop offset="100%" stop-color="#16102a"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#5aa9ff"/>
+      <stop offset="55%" stop-color="#7c8cff"/>
+      <stop offset="100%" stop-color="#c07cff"/>
+    </linearGradient>
+    <linearGradient id="scan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3ddc97"/>
+      <stop offset="100%" stop-color="#5aa9ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.12" r="0.75">
+      <stop offset="0%" stop-color="#5aa9ff" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#5aa9ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <style>
+      .sans { font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="560" fill="url(#bg)"/>
+  <rect width="1280" height="560" fill="url(#glow)"/>
+
+  <!-- subtle grid -->
+  <g stroke="#ffffff" stroke-opacity="0.035" stroke-width="1">
+    <path d="M0 120 H1280 M0 240 H1280 M0 360 H1280 M0 480 H1280"/>
+    <path d="M160 0 V560 M320 0 V560 M480 0 V560 M640 0 V560 M800 0 V560 M960 0 V560 M1120 0 V560"/>
+  </g>
+
+  <!-- scanning beam -->
+  <rect x="0" y="0" width="1280" height="3" fill="url(#scan)" opacity="0.9" filter="url(#soft)"/>
+  <rect x="0" y="0" width="1280" height="2" fill="url(#scan)" opacity="0.55"/>
+
+  <!-- wordmark -->
+  <g transform="translate(72,150)">
+    <!-- glyph mark -->
+    <g transform="translate(0,-6)">
+      <rect x="0" y="0" width="64" height="64" rx="15" fill="none" stroke="url(#brand)" stroke-width="3"/>
+      <path d="M18 45 L32 20 L46 45" fill="none" stroke="url(#brand)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M24 37 H40" stroke="url(#brand)" stroke-width="4.5" stroke-linecap="round"/>
+      <circle cx="48" cy="20" r="4.5" fill="#3ddc97"/>
+    </g>
+    <text x="86" y="46" class="sans" font-size="66" font-weight="700" letter-spacing="-1.6" fill="#f2f5fb">
+      Takeover<tspan fill="url(#brand)">X</tspan>
+    </text>
+  </g>
+
+  <text x="72" y="262" class="sans" font-size="30" font-weight="600" fill="#dfe6f2" letter-spacing="-0.3">
+    Subdomain takeover scanner
+  </text>
+  <text x="72" y="304" class="sans" font-size="19" fill="#93a0b5">
+    Finds the DNS records you forgot about — before someone else claims them.
+  </text>
+
+  <!-- terminal card -->
+  <g transform="translate(72,352)">
+    <rect x="0" y="0" width="1136" height="150" rx="12" fill="#0a0c12" stroke="#242a3a"/>
+    <circle cx="22" cy="20" r="5" fill="#ff5f57"/>
+    <circle cx="40" cy="20" r="5" fill="#febc2e"/>
+    <circle cx="58" cy="20" r="5" fill="#28c840"/>
+    <text x="82" y="26" class="mono" font-size="14" fill="#5f6b80">takeoverx -d example.com --passive</text>
+
+    <text x="24" y="62" class="mono" font-size="15" fill="#5f6b80">[*] 412 targets | 50 workers | 109 providers</text>
+
+    <text x="24" y="92" class="mono" font-size="15" fill="#3ddc97">cdn.example.com</text>
+    <text x="222" y="92" class="mono" font-size="15" fill="#ff5c5c" font-weight="700">VULNERABLE</text>
+    <text x="354" y="92" class="mono" font-size="15" fill="#ffb020">HIGH</text>
+    <text x="420" y="92" class="mono" font-size="15" fill="#8b95a8">AWS S3</text>
+    <text x="520" y="92" class="mono" font-size="15" fill="#5f6b80">NoSuchBucket</text>
+
+    <text x="24" y="122" class="mono" font-size="15" fill="#5f6b80">412 scanned | 1 vulnerable (1 high, 0 medium) | 409 safe | 2 unknown | 8.4s</text>
+  </g>
+
+  <!-- feature chips -->
+  <g class="sans" font-size="14" font-weight="600">
+    <g transform="translate(72,94)">
+      <rect x="0" y="0" width="152" height="32" rx="8" fill="#ffffff" fill-opacity="0.05" stroke="#2c3446"/>
+      <text x="18" y="21" fill="#c3ccdb">zero dependencies</text>
+    </g>
+    <g transform="translate(238,94)">
+      <rect x="0" y="0" width="146" height="32" rx="8" fill="#ffffff" fill-opacity="0.05" stroke="#2c3446"/>
+      <text x="18" y="21" fill="#c3ccdb">no Docker</text>
+    </g>
+    <g transform="translate(398,94)">
+      <rect x="0" y="0" width="164" height="32" rx="8" fill="#ffffff" fill-opacity="0.05" stroke="#2c3446"/>
+      <text x="18" y="21" fill="#c3ccdb">109 provider DB</text>
+    </g>
+    <g transform="translate(576,94)">
+      <rect x="0" y="0" width="176" height="32" rx="8" fill="#ffffff" fill-opacity="0.05" stroke="#2c3446"/>
+      <text x="18" y="21" fill="#c3ccdb">multi-step checks</text>
+    </g>
+    <g transform="translate(766,94)">
+      <rect x="0" y="0" width="140" height="32" rx="8" fill="#ffffff" fill-opacity="0.05" stroke="#2c3446"/>
+      <text x="18" y="21" fill="#c3ccdb">SARIF output</text>
+    </g>
+  </g>
+</svg>
